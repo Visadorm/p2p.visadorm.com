@@ -1,0 +1,17 @@
+/* Bigger sidebar navigation text */
+.fi-sidebar-item-label {
+    font-size: 1.1875rem !important;
+    font-weight: 500 !important;
+}
+
+.fi-sidebar-group-label {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.fi-sidebar-item-icon {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+}

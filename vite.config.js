@@ -1,0 +1,36 @@
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import path from 'path';
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: [
+                'resources/js/app.jsx',
+                'resources/css/filament/admin/theme.css',
+            ],
+            refresh: true,
+        }),
+        react(),
+        tailwindcss(),
+    ],
+    resolve: {
+        alias: {
+            '@': path.resolve(__dirname, './resources/js'),
+        },
+    },
+    // Required polyfills for @walletconnect/ethereum-provider
+    define: {
+        global: 'globalThis',
+        'process.env': {},
+    },
+    optimizeDeps: {
+        esbuildOptions: {
+            define: {
+                global: 'globalThis',
+            },
+        },
+    },
+});
