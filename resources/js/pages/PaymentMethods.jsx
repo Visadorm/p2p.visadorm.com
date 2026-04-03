@@ -301,20 +301,21 @@ export default function PaymentMethods() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>{formData.type === "cash_meeting" ? "Location Name" : "Provider Name"}</Label>
-              <Input
-                value={formData.provider}
-                onChange={(e) => setFormData((prev) => ({ ...prev, provider: e.target.value }))}
-                placeholder={
-                  formData.type === "bank_transfer" ? "e.g., Banco Popular, Chase, BHD León"
-                  : formData.type === "online_payment" ? "e.g., Zelle, PayPal, Wise"
-                  : formData.type === "mobile_payment" ? "e.g., M-Pesa, Cash App, Opay"
-                  : "e.g., Downtown Santo Domingo"
-                }
-                required
-              />
-            </div>
+            {formData.type !== "cash_meeting" && (
+              <div className="space-y-2">
+                <Label>Provider Name</Label>
+                <Input
+                  value={formData.provider}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, provider: e.target.value }))}
+                  placeholder={
+                    formData.type === "bank_transfer" ? "e.g., Banco Popular, Chase, BHD León"
+                    : formData.type === "online_payment" ? "e.g., Zelle, PayPal, Wise"
+                    : "e.g., M-Pesa, Cash App, Opay"
+                  }
+                  required
+                />
+              </div>
+            )}
 
             {/* ── Bank Transfer fields ── */}
             {formData.type === "bank_transfer" && (

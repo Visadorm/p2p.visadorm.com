@@ -143,7 +143,7 @@ function KycSkeleton() {
 }
 
 export default function Kyc() {
-  const { isAuthenticated } = useWallet()
+  const { isAuthenticated, merchant } = useWallet()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
