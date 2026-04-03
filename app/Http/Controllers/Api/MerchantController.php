@@ -153,8 +153,35 @@ class MerchantController extends Controller
             ], 404);
         }
 
-        // Refresh badges live to ensure they're current (doesn't depend on queue)
+        // Refresh badges and stats live (doesn't depend on queue)
         app(\App\Services\MerchantBadgeService::class)->updateBadges($merchant);
+
+        // Always recalculate stats from trades table (single query)
+        $stats = $merchant->trades()->selectRaw("
+            COUNT(*) as total_trades,
+            SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_trades,
+            SUM(CASE WHEN status = ? THEN amount_usdc ELSE 0 END) as total_volume,
+            SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as disputed_trades
+        ", [
+            TradeStatus::Completed->value,
+            TradeStatus::Completed->value,
+            TradeStatus::Disputed->value,
+        ])->first();
+
+        $totalTrades = (int) $stats->total_trades;
+        $completedTrades = (int) $stats->completed_trades;
+        $completionRate = $totalTrades > 0 ? round(($completedTrades / $totalTrades) * 100, 2) : 0;
+        $disputeRate = $totalTrades > 0 ? round(((int) $stats->disputed_trades / $totalTrades) * 100, 2) : 0;
+        $reliabilityScore = max(0, min(10, round(($completionRate / 10) - ($disputeRate / 5), 1)));
+
+        $merchant->update([
+            'total_trades' => $totalTrades,
+            'total_volume' => (float) $stats->total_volume,
+            'completion_rate' => $completionRate,
+            'dispute_rate' => $disputeRate,
+            'reliability_score' => $reliabilityScore,
+        ]);
+
         $merchant->refresh();
 
         $reviews = $merchant->reviews()
