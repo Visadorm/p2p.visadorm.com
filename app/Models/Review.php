@@ -15,6 +15,7 @@ class Review extends Model
         'trade_id',
         'merchant_id',
         'reviewer_wallet',
+        'reviewer_role',
         'rating',
         'comment',
         'is_hidden',

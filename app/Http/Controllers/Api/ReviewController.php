@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Enums\TradeStatus;
+use App\Models\Merchant;
+use App\Models\Review;
 use App\Models\Trade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,7 +13,8 @@ use Illuminate\Http\Request;
 class ReviewController extends Controller
 {
     /**
-     * Buyer leaves a review after a completed trade.
+     * Both buyer and merchant can leave a review after a completed trade.
+     * Each party reviews the OTHER party (buyer reviews seller, seller reviews buyer).
      */
     public function store(Request $request, string $tradeHash): JsonResponse
     {
@@ -20,20 +23,12 @@ class ReviewController extends Controller
             'comment' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ]);
 
-        $trade = Trade::where('trade_hash', $tradeHash)->first();
+        $trade = Trade::where('trade_hash', $tradeHash)->with('merchant')->first();
 
         if (! $trade) {
             return response()->json([
                 'message' => __('p2p.trade_not_found'),
             ], 404);
-        }
-
-        $buyerWallet = strtolower($request->user()->wallet_address);
-
-        if (strtolower($trade->buyer_wallet) !== $buyerWallet) {
-            return response()->json([
-                'message' => __('p2p.review_not_buyer'),
-            ], 403);
         }
 
         if ($trade->status !== TradeStatus::Completed) {
@@ -42,15 +37,49 @@ class ReviewController extends Controller
             ], 422);
         }
 
-        if ($trade->review()->exists()) {
+        $userWallet = strtolower($request->user()->wallet_address);
+        $isBuyer = strtolower($trade->buyer_wallet) === $userWallet;
+        $isMerchant = strtolower($trade->merchant->wallet_address) === $userWallet;
+
+        if (! $isBuyer && ! $isMerchant) {
+            return response()->json([
+                'message' => __('p2p.trade_not_authorized'),
+            ], 403);
+        }
+
+        $reviewerRole = $isBuyer ? 'buyer' : 'seller';
+
+        // Check if this party already left a review
+        $exists = Review::where('trade_id', $trade->id)
+            ->where('reviewer_role', $reviewerRole)
+            ->exists();
+
+        if ($exists) {
             return response()->json([
                 'message' => __('p2p.review_already_exists'),
             ], 422);
         }
 
-        $review = $trade->review()->create([
-            'merchant_id' => $trade->merchant_id,
-            'reviewer_wallet' => $buyerWallet,
+        // Determine who is being reviewed (the OTHER party's merchant record)
+        if ($isBuyer) {
+            // Buyer reviews the seller — merchant_id = seller's merchant
+            $reviewedMerchantId = $trade->merchant_id;
+        } else {
+            // Seller reviews the buyer — find buyer's merchant record
+            $buyerMerchant = Merchant::where('wallet_address', $trade->buyer_wallet)->first();
+            if (! $buyerMerchant) {
+                return response()->json([
+                    'message' => __('p2p.review_buyer_not_merchant'),
+                ], 422);
+            }
+            $reviewedMerchantId = $buyerMerchant->id;
+        }
+
+        $review = Review::create([
+            'trade_id' => $trade->id,
+            'merchant_id' => $reviewedMerchantId,
+            'reviewer_wallet' => $userWallet,
+            'reviewer_role' => $reviewerRole,
             'rating' => $validated['rating'],
             'comment' => $validated['comment'] ?? null,
             'created_at' => now(),

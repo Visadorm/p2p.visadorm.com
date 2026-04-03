@@ -110,6 +110,15 @@ class Merchant extends Model
         return $this->hasMany(Trade::class);
     }
 
+    /**
+     * All trades where this merchant is either seller (merchant_id) or buyer (buyer_wallet).
+     */
+    public function allTrades(): \Illuminate\Database\Eloquent\Builder
+    {
+        return Trade::where('merchant_id', $this->id)
+            ->orWhere('buyer_wallet', $this->wallet_address);
+    }
+
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);

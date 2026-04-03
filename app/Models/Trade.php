@@ -84,6 +84,16 @@ class Trade extends Model
 
     public function review(): HasOne
     {
-        return $this->hasOne(Review::class);
+        return $this->hasOne(Review::class)->where('reviewer_role', 'buyer');
+    }
+
+    public function merchantReview(): HasOne
+    {
+        return $this->hasOne(Review::class)->where('reviewer_role', 'seller');
+    }
+
+    public function reviews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 }

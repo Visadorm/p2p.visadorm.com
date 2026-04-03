@@ -258,7 +258,7 @@ class TradeController extends Controller
     public function status(Request $request, string $tradeHash): JsonResponse
     {
         $trade = Trade::where('trade_hash', $tradeHash)
-            ->with(['merchant:id,username,wallet_address,rank_id', 'merchant.rank', 'tradingLink', 'review', 'dispute'])
+            ->with(['merchant:id,username,wallet_address,rank_id', 'merchant.rank', 'tradingLink', 'review', 'merchantReview', 'dispute'])
             ->first();
 
         if (! $trade) {

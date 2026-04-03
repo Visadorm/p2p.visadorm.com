@@ -655,7 +655,7 @@ export default function TradeRelease({ tradeHash }) {
           )}
 
           {/* Review Form — shows after trade completes */}
-          {tradeStatus === "completed" && !reviewSubmitted && !trade?.review && (
+          {tradeStatus === "completed" && !reviewSubmitted && !trade?.merchant_review && (
             <Card className="border-emerald-500/20 bg-emerald-500/5">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -705,7 +705,7 @@ export default function TradeRelease({ tradeHash }) {
             </Card>
           )}
 
-          {(reviewSubmitted || trade?.review) && tradeStatus === "completed" && (
+          {(reviewSubmitted || trade?.merchant_review) && tradeStatus === "completed" && (
             <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
               <CheckCircle weight="fill" size={18} className="text-emerald-500" />
               <span className="text-sm font-medium text-emerald-400">Review submitted</span>

@@ -153,42 +153,11 @@ class MerchantController extends Controller
             ], 404);
         }
 
-        // Refresh badges and stats live (doesn't depend on queue)
-        app(\App\Services\MerchantBadgeService::class)->updateBadges($merchant);
-
-        // Always recalculate stats from trades table (single query)
-        $stats = $merchant->trades()->selectRaw("
-            COUNT(*) as total_trades,
-            SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_trades,
-            SUM(CASE WHEN status = ? THEN amount_usdc ELSE 0 END) as total_volume,
-            SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as disputed_trades
-        ", [
-            TradeStatus::Completed->value,
-            TradeStatus::Completed->value,
-            TradeStatus::Disputed->value,
-        ])->first();
-
-        $totalTrades = (int) $stats->total_trades;
-        $completedTrades = (int) $stats->completed_trades;
-        $completionRate = $totalTrades > 0 ? round(($completedTrades / $totalTrades) * 100, 2) : 0;
-        $disputeRate = $totalTrades > 0 ? round(((int) $stats->disputed_trades / $totalTrades) * 100, 2) : 0;
-        $reliabilityScore = max(0, min(10, round(($completionRate / 10) - ($disputeRate / 5), 1)));
-
-        $merchant->update([
-            'total_trades' => $totalTrades,
-            'total_volume' => (float) $stats->total_volume,
-            'completion_rate' => $completionRate,
-            'dispute_rate' => $disputeRate,
-            'reliability_score' => $reliabilityScore,
-        ]);
-
-        $merchant->refresh();
-
         $reviews = $merchant->reviews()
             ->where('is_hidden', false)
             ->latest('created_at')
             ->limit(10)
-            ->get(['id', 'reviewer_wallet', 'rating', 'comment', 'created_at']);
+            ->get(['id', 'trade_id', 'reviewer_wallet', 'reviewer_role', 'rating', 'comment', 'created_at']);
 
         // Single query for count + avg instead of 2 separate queries
         $reviewAgg = $merchant->reviews()
@@ -199,7 +168,7 @@ class MerchantController extends Controller
         $avgRating = (float) $reviewAgg->avg_rating;
         $reviewCount = (int) $reviewAgg->review_count;
 
-        $activeTrades = $merchant->trades()
+        $activeTrades = $merchant->allTrades()
             ->whereIn('status', [TradeStatus::Pending, TradeStatus::EscrowLocked, TradeStatus::PaymentSent])
             ->count();
 
@@ -208,11 +177,11 @@ class MerchantController extends Controller
         $lockedBalance   = $escrowService->getLockedInTrades($merchant);
         $escrowAddress   = rescue(fn () => app(BlockchainSettings::class)->trade_escrow_address, '');
 
-        $recentTrades = $merchant->trades()
+        $recentTrades = $merchant->allTrades()
             ->where('status', TradeStatus::Completed)
             ->orderByDesc('completed_at')
             ->limit(10)
-            ->get(['buyer_wallet', 'amount_usdc', 'completed_at']);
+            ->get(['merchant_id', 'buyer_wallet', 'amount_usdc', 'completed_at']);
 
         return response()->json([
             'data' => [
@@ -268,7 +237,10 @@ class MerchantController extends Controller
                     'review_count' => $reviewCount,
                     'reviews' => $reviews,
                     'recent_trades' => $recentTrades->map(fn ($t) => [
-                        'buyer' => substr($t->buyer_wallet, 0, 4) . '***' . substr($t->buyer_wallet, -2),
+                        'counterparty' => $t->merchant_id === $merchant->id
+                            ? substr($t->buyer_wallet, 0, 4) . '***' . substr($t->buyer_wallet, -2)
+                            : 'Seller',
+                        'role' => $t->merchant_id === $merchant->id ? 'sell' : 'buy',
                         'amount' => $t->amount_usdc,
                         'time' => $t->completed_at?->diffForHumans(),
                     ]),

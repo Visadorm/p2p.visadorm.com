@@ -81,7 +81,7 @@ class MerchantTradeController extends Controller
 
         $trade = Trade::where('trade_hash', $tradeHash)
             ->where('merchant_id', $merchant->id)
-            ->with(['merchant:id,username,wallet_address', 'tradingLink', 'dispute', 'review'])
+            ->with(['merchant:id,username,wallet_address', 'tradingLink', 'dispute', 'review', 'merchantReview'])
             ->first();
 
         if (! $trade) {

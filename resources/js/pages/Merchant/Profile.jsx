@@ -577,6 +577,7 @@ export default function MerchantProfile({ username }) {
                     const reviewDate = review.created_at
                       ? new Date(review.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                       : ""
+                    const isBuyReview = review.reviewer_role === "buyer"
                     return (
                       <Card key={review.id} className="border-border/50">
                         <CardContent className="pt-5">
@@ -588,6 +589,11 @@ export default function MerchantProfile({ username }) {
                               <div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-semibold">{reviewerDisplay}</span>
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    isBuyReview ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
+                                  }`}>
+                                    {isBuyReview ? "Bought" : "Sold"}
+                                  </span>
                                 </div>
                                 <ReviewStars rating={review.rating} size={13} />
                               </div>
