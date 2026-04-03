@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 # ============================================
 # Auto Deploy Script — Visadorm P2P
