@@ -321,6 +321,12 @@ class TradeController extends Controller
             ], 422);
         }
 
+        if ($trade->expires_at && $trade->expires_at->isPast()) {
+            return response()->json([
+                'message' => __('trade.error.trade_expired'),
+            ], 422);
+        }
+
         $this->tradeService->markPaymentSent($trade);
 
         \App\Jobs\ProcessTradeBlockchainSync::dispatch($trade, 'mark_paid');
@@ -360,6 +366,12 @@ class TradeController extends Controller
             ], 422);
         }
 
+        if ($trade->status !== TradeStatus::PaymentSent && $trade->expires_at && $trade->expires_at->isPast()) {
+            return response()->json([
+                'message' => __('trade.error.trade_expired'),
+            ], 422);
+        }
+
         $trade = $this->tradeService->uploadBankProof($trade, $request->file('bank_proof'));
 
         return response()->json([
@@ -394,6 +406,12 @@ class TradeController extends Controller
         if (! in_array($trade->status, [TradeStatus::Pending, TradeStatus::EscrowLocked, TradeStatus::PaymentSent])) {
             return response()->json([
                 'message' => __('p2p.trade_invalid_status'),
+            ], 422);
+        }
+
+        if ($trade->status !== TradeStatus::PaymentSent && $trade->expires_at && $trade->expires_at->isPast()) {
+            return response()->json([
+                'message' => __('trade.error.trade_expired'),
             ], 422);
         }
 
@@ -474,11 +492,8 @@ class TradeController extends Controller
             ], 422);
         }
 
-        if ($trade->expires_at && $trade->expires_at->isPast()) {
-            return response()->json([
-                'message' => __('trade.error.trade_expired'),
-            ], 422);
-        }
+        // Allow confirm even if expired — merchant should always be able to release
+        // once buyer has paid. Expiration only prevents NEW actions, not completion.
 
         $this->tradeService->confirmPayment($trade);
 

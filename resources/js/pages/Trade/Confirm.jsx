@@ -291,8 +291,10 @@ export default function TradeConfirm({ tradeHash }) {
 
   // Determine if actions are available based on status
   const isUploading = uploadingBank || uploadingId
-  const canMarkPaid = (tradeStatus === "pending" || tradeStatus === "escrow_locked") && !isUploading
+  const isExpired = trade?.expires_at && new Date(trade.expires_at) < new Date()
+  const canMarkPaid = (tradeStatus === "pending" || tradeStatus === "escrow_locked") && !isUploading && !isExpired
   const canCancel = (tradeStatus === "pending" || tradeStatus === "escrow_locked") && !isUploading
+  const canUpload = !isExpired || tradeStatus === "payment_sent"
   const isTerminal = ["completed", "cancelled", "expired", "disputed"].includes(tradeStatus)
 
   // Payment details from trading link

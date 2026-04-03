@@ -44,10 +44,17 @@ class ProcessTradeInitiation implements ShouldQueue
 
         $blockchainService->waitForReceipt($txHash);
 
-        $this->trade->update([
-            'status' => TradeStatus::EscrowLocked,
-            'escrow_tx_hash' => $txHash,
-        ]);
+        // Only update status if trade hasn't already advanced past Pending
+        $this->trade->refresh();
+        if ($this->trade->status === TradeStatus::Pending) {
+            $this->trade->update([
+                'status' => TradeStatus::EscrowLocked,
+                'escrow_tx_hash' => $txHash,
+            ]);
+        } else {
+            // Trade already advanced — just store the tx hash
+            $this->trade->update(['escrow_tx_hash' => $txHash]);
+        }
 
         $isCashMeeting = in_array(
             strtolower($this->trade->payment_method),
