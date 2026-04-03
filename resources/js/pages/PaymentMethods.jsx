@@ -414,7 +414,7 @@ export default function PaymentMethods() {
                   <Input
                     value={formData.location}
                     onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
-                    placeholder="e.g., Santo Domingo, Lagos"
+                    placeholder="e.g., Santo Domingo"
                     required
                   />
                 </div>
