@@ -87,8 +87,8 @@ export function useEscrow() {
         setDepositState("approving")
         const approveTx = await usdc.approve(escrowAddress, rawAmount.toString())
         await approveTx.wait()
-        // Small pause to let the allowance propagate
-        await new Promise((r) => setTimeout(r, 1500))
+        // Wait for allowance to propagate on RPC nodes
+        await new Promise((r) => setTimeout(r, 3000))
       }
 
       // Submit deposit to backend
