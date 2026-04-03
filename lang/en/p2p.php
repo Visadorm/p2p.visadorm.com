@@ -223,5 +223,8 @@ return [
     'insufficient_escrow_balance' => 'Insufficient available escrow balance.',
     'escrow_deposit_submitted'    => 'Deposit transaction submitted.',
     'escrow_withdraw_submitted'   => 'Withdrawal transaction submitted.',
+    'insufficient_usdc_balance'   => 'Insufficient USDC balance in your wallet. You have :balance USDC available.',
+    'deposit_reverted'            => 'Deposit failed — please check your wallet has enough USDC and you have approved the amount.',
+    'withdraw_reverted'           => 'Withdrawal failed — please check your escrow balance and try again.',
 
 ];

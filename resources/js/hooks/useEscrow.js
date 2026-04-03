@@ -87,8 +87,8 @@ export function useEscrow() {
         setDepositState("approving")
         const approveTx = await usdc.approve(escrowAddress, rawAmount.toString())
         await approveTx.wait()
-        // Wait for allowance to propagate on RPC nodes
-        await new Promise((r) => setTimeout(r, 3000))
+        // Small pause to let the allowance propagate
+        await new Promise((r) => setTimeout(r, 1500))
       }
 
       // Submit deposit to backend
@@ -118,7 +118,10 @@ export function useEscrow() {
       fetchData()
     } catch (err) {
       setDepositState("idle")
-      toast.error(err?.message ?? "Deposit failed")
+      const msg = err?.message ?? "Deposit failed"
+      const isRejection = err?.code === 4001 || err?.code === "ACTION_REJECTED"
+      const isRpc = msg.toLowerCase().includes("execution reverted") || msg.toLowerCase().includes("rpc error")
+      toast.error(isRejection ? "Transaction cancelled" : isRpc ? "Deposit failed — please check your wallet has enough USDC." : msg)
     }
   }, [usdcAddress, escrowAddress, walletSigner, phraseWallet, isCorrectChain, fetchData])
 
@@ -158,7 +161,10 @@ export function useEscrow() {
       fetchData()
     } catch (err) {
       setWithdrawState("idle")
-      toast.error(err?.message ?? "Withdrawal failed")
+      const msg = err?.message ?? "Withdrawal failed"
+      const isRejection = err?.code === 4001 || err?.code === "ACTION_REJECTED"
+      const isRpc = msg.toLowerCase().includes("execution reverted") || msg.toLowerCase().includes("rpc error")
+      toast.error(isRejection ? "Transaction cancelled" : isRpc ? "Withdrawal failed — please check your escrow balance." : msg)
     }
   }, [availableBalance, fetchData])
 

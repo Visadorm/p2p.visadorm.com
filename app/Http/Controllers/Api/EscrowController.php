@@ -34,12 +34,26 @@ class EscrowController extends Controller
                     'message' => __('p2p.insufficient_usdc_allowance'),
                 ], 422);
             }
+
+            // Check wallet USDC balance before attempting deposit
+            $balance = $this->blockchain->getUsdcBalance($merchant->wallet_address);
+            if (bccomp($balance, $rawAmount) < 0) {
+                $humanBalance = bcdiv($balance, '1000000', 2);
+                return response()->json([
+                    'message' => __('p2p.insufficient_usdc_balance', ['balance' => $humanBalance]),
+                ], 422);
+            }
+
             $txHash = $this->blockchain->depositEscrow($merchant->wallet_address, $rawAmount);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Escrow operation failed', ['error' => $e->getMessage()]);
-            return response()->json([
-                'message' => config('app.debug') ? $e->getMessage() : __('p2p.server_error'),
-            ], 503);
+            $msg = strtolower($e->getMessage());
+            if (str_contains($msg, 'execution reverted') || str_contains($msg, 'insufficient')) {
+                return response()->json([
+                    'message' => __('p2p.deposit_reverted'),
+                ], 422);
+            }
+            \Illuminate\Support\Facades\Log::error('Escrow deposit failed', ['error' => $e->getMessage()]);
+            return response()->json(['message' => __('p2p.server_error')], 503);
         }
 
         return response()->json([
@@ -71,10 +85,14 @@ class EscrowController extends Controller
             }
             $txHash = $this->blockchain->withdrawEscrow($merchant->wallet_address, $rawAmount);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Escrow operation failed', ['error' => $e->getMessage()]);
-            return response()->json([
-                'message' => config('app.debug') ? $e->getMessage() : __('p2p.server_error'),
-            ], 503);
+            $msg = strtolower($e->getMessage());
+            if (str_contains($msg, 'execution reverted') || str_contains($msg, 'insufficient')) {
+                return response()->json([
+                    'message' => __('p2p.withdraw_reverted'),
+                ], 422);
+            }
+            \Illuminate\Support\Facades\Log::error('Escrow withdraw failed', ['error' => $e->getMessage()]);
+            return response()->json(['message' => __('p2p.server_error')], 503);
         }
 
         return response()->json([
