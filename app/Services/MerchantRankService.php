@@ -62,6 +62,12 @@ class MerchantRankService
 
     private function getRankBySlug(string $slug): MerchantRank
     {
-        return Cache::remember('merchant_rank:' . $slug, 3600, fn () => MerchantRank::where('slug', $slug)->firstOrFail());
+        $data = Cache::remember(
+            'merchant_rank:' . $slug,
+            3600,
+            fn () => MerchantRank::where('slug', $slug)->firstOrFail()->toArray()
+        );
+
+        return (new MerchantRank)->forceFill($data);
     }
 }

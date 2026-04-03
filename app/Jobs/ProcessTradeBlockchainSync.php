@@ -26,6 +26,14 @@ class ProcessTradeBlockchainSync implements ShouldQueue
 
     public function handle(BlockchainService $blockchain): void
     {
+        // Skip if trade not yet on-chain (initiation job hasn't completed)
+        $this->trade->refresh();
+        if (! $this->trade->escrow_tx_hash) {
+            Log::warning("Trade {$this->trade->trade_hash}: skipping {$this->action} — not yet on-chain");
+            $this->release(60); // retry in 60 seconds
+            return;
+        }
+
         $txHash = match ($this->action) {
             'mark_paid' => $blockchain->markPaymentSent($this->trade->trade_hash),
             'cancel' => $blockchain->cancelTrade($this->trade->trade_hash),

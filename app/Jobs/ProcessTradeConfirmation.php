@@ -25,6 +25,14 @@ class ProcessTradeConfirmation implements ShouldQueue
 
     public function handle(BlockchainService $blockchain): void
     {
+        // Skip if trade not yet on-chain (initiation job hasn't completed)
+        $this->trade->refresh();
+        if (! $this->trade->escrow_tx_hash) {
+            Log::warning("Trade {$this->trade->trade_hash}: skipping confirm — not yet on-chain");
+            $this->release(60);
+            return;
+        }
+
         $txHash = $blockchain->confirmPayment($this->trade->trade_hash);
         $this->trade->update(['release_tx_hash' => $txHash]);
 
