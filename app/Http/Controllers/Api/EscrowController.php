@@ -37,7 +37,9 @@ class EscrowController extends Controller
             $txHash = $this->blockchain->depositEscrow($merchant->wallet_address, $rawAmount);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Escrow operation failed', ['error' => $e->getMessage()]);
-            return response()->json(['message' => __('p2p.server_error')], 503);
+            return response()->json([
+                'message' => config('app.debug') ? $e->getMessage() : __('p2p.server_error'),
+            ], 503);
         }
 
         return response()->json([
@@ -70,7 +72,9 @@ class EscrowController extends Controller
             $txHash = $this->blockchain->withdrawEscrow($merchant->wallet_address, $rawAmount);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Escrow operation failed', ['error' => $e->getMessage()]);
-            return response()->json(['message' => __('p2p.server_error')], 503);
+            return response()->json([
+                'message' => config('app.debug') ? $e->getMessage() : __('p2p.server_error'),
+            ], 503);
         }
 
         return response()->json([
