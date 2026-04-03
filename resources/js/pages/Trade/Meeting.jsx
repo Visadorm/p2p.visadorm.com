@@ -363,7 +363,7 @@ export default function TradeMeeting({ tradeHash }) {
           {/* Action Buttons */}
           {!isTerminal && (
             <div className="space-y-3">
-              {tradeStatus === "escrow_locked" && (
+              {(tradeStatus === "pending" || tradeStatus === "escrow_locked") && (
                 <Button
                   size="lg"
                   className="w-full gap-2 bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
@@ -393,7 +393,7 @@ export default function TradeMeeting({ tradeHash }) {
                     {cancelling ? "Cancelling..." : "Cancel Trade"}
                   </button>
                 )}
-                {(tradeStatus === "escrow_locked" || tradeStatus === "payment_sent") && (
+                {!isTerminal && (
                   <button
                     onClick={() => setShowDisputeForm(!showDisputeForm)}
                     className="text-sm font-medium text-amber-400 transition-colors hover:text-amber-300"

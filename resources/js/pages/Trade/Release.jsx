@@ -193,8 +193,8 @@ export default function TradeRelease({ tradeHash }) {
   const idProofStatus = trade?.buyer_id_status?.value || trade?.buyer_id_status || null
 
   const isCashMeeting = ["cash_meeting", "cash meeting"].includes((trade?.payment_method || "").toLowerCase())
-  const canConfirm = tradeStatus === "payment_sent" || (isCashMeeting && tradeStatus === "escrow_locked")
-  const canDispute = ["escrow_locked", "payment_sent"].includes(tradeStatus)
+  const canConfirm = tradeStatus === "payment_sent" || (isCashMeeting && (tradeStatus === "escrow_locked" || tradeStatus === "pending"))
+  const canDispute = ["pending", "escrow_locked", "payment_sent"].includes(tradeStatus)
   const isTerminal = ["completed", "cancelled", "expired", "disputed"].includes(tradeStatus)
 
   return (
