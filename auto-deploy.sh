@@ -44,7 +44,6 @@ php artisan optimize:clear
 php artisan optimize
 php artisan filament:optimize
 php artisan icons:cache
-php artisan merchants:recalculate-stats
 php artisan queue:restart
 
 chmod -R 775 storage bootstrap/cache
