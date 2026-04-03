@@ -115,8 +115,15 @@ export function WalletProvider({ children, blockchain }) {
 
     setConnecting(true)
     try {
-      // Request accounts first
-      await ethereum.request({ method: "eth_requestAccounts" })
+      // Check if already connected (no popup) before requesting
+      let accounts = await ethereum.request({ method: "eth_accounts" })
+      if (!accounts || accounts.length === 0) {
+        accounts = await ethereum.request({ method: "eth_requestAccounts" })
+      }
+
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No accounts returned")
+      }
 
       // Check chain and switch if needed before creating the ethers provider
       const chainIdHex = await ethereum.request({ method: "eth_chainId" })
