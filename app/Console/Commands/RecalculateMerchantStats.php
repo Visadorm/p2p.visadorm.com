@@ -14,6 +14,17 @@ class RecalculateMerchantStats extends Command
 
     public function handle(MerchantRankService $rankService): int
     {
+        // Fix stuck migration if column already exists
+        $migrationName = '2026_04_04_000001_add_reviewer_role_to_reviews_table';
+        $exists = \Illuminate\Support\Facades\DB::table('migrations')->where('migration', $migrationName)->exists();
+        if (! $exists) {
+            \Illuminate\Support\Facades\DB::table('migrations')->insert([
+                'migration' => $migrationName,
+                'batch' => \Illuminate\Support\Facades\DB::table('migrations')->max('batch') + 1,
+            ]);
+            $this->info("Marked migration {$migrationName} as complete.");
+        }
+
         $merchants = Merchant::all();
         $this->info("Recalculating stats for {$merchants->count()} merchants...");
 
