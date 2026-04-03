@@ -222,8 +222,8 @@ export default function Kyc() {
     return BADGES.map((badge) => {
       let active = false
       if (badge.key === "verified" && approvedTypes.includes("id_document")) active = true
-      if (badge.key === "fast" && approvedTypes.includes("bank_statement")) active = true
-      if (badge.key === "liquidity" && approvedTypes.includes("proof_of_residency")) active = true
+      if (badge.key === "fast" && merchant?.is_fast_responder) active = true
+      if (badge.key === "liquidity" && merchant?.has_liquidity) active = true
       if (badge.key === "business" && approvedTypes.includes("business_document")) active = true
       return { ...badge, active }
     })

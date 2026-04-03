@@ -76,8 +76,8 @@
       "_IconBase.es-bvfvU-g4.js"
     ]
   },
-  "_ConnectWallet-BxAgFP6b.js": {
-    "file": "assets/ConnectWallet-BxAgFP6b.js",
+  "_ConnectWallet-Clty07Xi.js": {
+    "file": "assets/ConnectWallet-Clty07Xi.js",
     "name": "ConnectWallet",
     "imports": [
       "_chunk-Be6NvmcD.js",
@@ -106,8 +106,8 @@
       "_IconBase.es-bvfvU-g4.js"
     ]
   },
-  "_DashboardLayout-DTOpcN9G.js": {
-    "file": "assets/DashboardLayout-DTOpcN9G.js",
+  "_DashboardLayout-CQwehTTQ.js": {
+    "file": "assets/DashboardLayout-CQwehTTQ.js",
     "name": "DashboardLayout",
     "imports": [
       "_chunk-Be6NvmcD.js",
@@ -115,7 +115,7 @@
       "_dist-CJzW-cCA.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "resources/js/app.jsx",
       "_CreditCard.es-pS0vIvTg.js",
       "_CurrencyDollar.es-DTe-YDaN.js",
@@ -242,8 +242,8 @@
       "_Star.es-8Ga_ORwU.js"
     ]
   },
-  "_RiskWarning-DMorgd81.js": {
-    "file": "assets/RiskWarning-DMorgd81.js",
+  "_RiskWarning-CZ1UpAh4.js": {
+    "file": "assets/RiskWarning-CZ1UpAh4.js",
     "name": "RiskWarning",
     "imports": [
       "_IconBase.es-bvfvU-g4.js",
@@ -487,15 +487,15 @@
       "_utils-CFPj9XW3.js"
     ]
   },
-  "_select-DB1hc9aL.js": {
-    "file": "assets/select-DB1hc9aL.js",
+  "_select-BVslTBUB.js": {
+    "file": "assets/select-BVslTBUB.js",
     "name": "select",
     "imports": [
       "_chunk-Be6NvmcD.js",
       "_dist-CZDv56W9.js",
       "_dist-CJzW-cCA.js",
       "_IconBase.es-bvfvU-g4.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "_Check.es-2hI_D--i.js",
       "_dist-D3kx87-x.js",
       "_dist-BO-jISmN.js",
@@ -542,8 +542,8 @@
       "_IconBase.es-bvfvU-g4.js"
     ]
   },
-  "_use-trade-channel-CL1dQLce.js": {
-    "file": "assets/use-trade-channel-CL1dQLce.js",
+  "_use-trade-channel-Bb8pagZ-.js": {
+    "file": "assets/use-trade-channel-Bb8pagZ-.js",
     "name": "use-trade-channel",
     "imports": [
       "_chunk-Be6NvmcD.js",
@@ -1185,7 +1185,7 @@
     "isEntry": true
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-nxBpBRFx.js",
+    "file": "assets/app-CgK8XpmN.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1230,7 +1230,7 @@
     ]
   },
   "resources/js/pages/Auth/Connect.jsx": {
-    "file": "assets/Connect-BEMzKiwn.js",
+    "file": "assets/Connect-B_8GV4OK.js",
     "name": "Connect",
     "src": "resources/js/pages/Auth/Connect.jsx",
     "isDynamicEntry": true,
@@ -1239,14 +1239,14 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "_Lock.es-AGd6r8vP.js",
       "_SiteLogo-_qxxuKgd.js",
       "_button-Blpika4e.js"
     ]
   },
   "resources/js/pages/Auth/Landing.jsx": {
-    "file": "assets/Landing-CQS2pw9m.js",
+    "file": "assets/Landing-Cn2CLHRr.js",
     "name": "Landing",
     "src": "resources/js/pages/Auth/Landing.jsx",
     "isDynamicEntry": true,
@@ -1254,7 +1254,7 @@
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
       "_ArrowRight.es-CL8mICnE.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "_ChartLineUp.es-CI1KitRB.js",
       "resources/js/app.jsx",
       "_Handshake.es-DvhrN65V.js",
@@ -1269,7 +1269,7 @@
     ]
   },
   "resources/js/pages/Auth/Setup.jsx": {
-    "file": "assets/Setup-CqcVxKO1.js",
+    "file": "assets/Setup-Bee-0j2X.js",
     "name": "Setup",
     "src": "resources/js/pages/Auth/Setup.jsx",
     "isDynamicEntry": true,
@@ -1291,7 +1291,7 @@
     ]
   },
   "resources/js/pages/BuyerVerification.jsx": {
-    "file": "assets/BuyerVerification-BO1kdtZS.js",
+    "file": "assets/BuyerVerification-CZCTo2fy.js",
     "name": "BuyerVerification",
     "src": "resources/js/pages/BuyerVerification.jsx",
     "isDynamicEntry": true,
@@ -1300,7 +1300,7 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_SiteLogo-_qxxuKgd.js",
       "_switch-CJIQV_mz.js",
       "_button-Blpika4e.js",
@@ -1308,7 +1308,7 @@
     ]
   },
   "resources/js/pages/CurrencyMarkup.jsx": {
-    "file": "assets/CurrencyMarkup-x9pybBRP.js",
+    "file": "assets/CurrencyMarkup-QIzQ4oLp.js",
     "name": "CurrencyMarkup",
     "src": "resources/js/pages/CurrencyMarkup.jsx",
     "isDynamicEntry": true,
@@ -1317,8 +1317,8 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_ConnectWallet-Clty07Xi.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_ChartLineUp.es-CI1KitRB.js",
       "_Check.es-2hI_D--i.js",
       "_CurrencyDollar.es-DTe-YDaN.js",
@@ -1332,7 +1332,7 @@
     ]
   },
   "resources/js/pages/Dashboard.jsx": {
-    "file": "assets/Dashboard-BxkEYE48.js",
+    "file": "assets/Dashboard-eZsUwiWN.js",
     "name": "Dashboard",
     "src": "resources/js/pages/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -1342,8 +1342,8 @@
       "_IconBase.es-bvfvU-g4.js",
       "_EscrowBalanceDisplay-mN-Wrruf.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_ConnectWallet-Clty07Xi.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_ChartLineUp.es-CI1KitRB.js",
       "resources/js/app.jsx",
       "_CreditCard.es-pS0vIvTg.js",
@@ -1354,7 +1354,7 @@
     ]
   },
   "resources/js/pages/Instructions.jsx": {
-    "file": "assets/Instructions-fDhAMAHC.js",
+    "file": "assets/Instructions-FSvCfMNw.js",
     "name": "Instructions",
     "src": "resources/js/pages/Instructions.jsx",
     "isDynamicEntry": true,
@@ -1363,7 +1363,7 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_SiteLogo-_qxxuKgd.js",
       "_button-Blpika4e.js",
       "_skeleton-CjeBHd2A.js",
@@ -1371,7 +1371,7 @@
     ]
   },
   "resources/js/pages/Kyc.jsx": {
-    "file": "assets/Kyc-CDTrd927.js",
+    "file": "assets/Kyc-CihYtiEp.js",
     "name": "Kyc",
     "src": "resources/js/pages/Kyc.jsx",
     "isDynamicEntry": true,
@@ -1380,8 +1380,8 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_ConnectWallet-Clty07Xi.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_Drop.es-0dmNqRsO.js",
       "resources/js/app.jsx",
       "_Clock.es-CJ1FnhOR.js",
@@ -1394,7 +1394,7 @@
     ]
   },
   "resources/js/pages/Liquidity.jsx": {
-    "file": "assets/Liquidity-C7b26Lyv.js",
+    "file": "assets/Liquidity-BQT-X3Lw.js",
     "name": "Liquidity",
     "src": "resources/js/pages/Liquidity.jsx",
     "isDynamicEntry": true,
@@ -1405,8 +1405,8 @@
       "_IconBase.es-bvfvU-g4.js",
       "_EscrowBalanceDisplay-mN-Wrruf.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_ConnectWallet-Clty07Xi.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "resources/js/app.jsx",
       "_Lock.es-AGd6r8vP.js",
       "_SiteLogo-_qxxuKgd.js",
@@ -1416,7 +1416,7 @@
     ]
   },
   "resources/js/pages/Merchant/Profile.jsx": {
-    "file": "assets/Profile-C7xqd2CB.js",
+    "file": "assets/Profile-CGFMuriW.js",
     "name": "Profile",
     "src": "resources/js/pages/Merchant/Profile.jsx",
     "isDynamicEntry": true,
@@ -1426,10 +1426,10 @@
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
       "_ArrowRight.es-CL8mICnE.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "_Bank.es-DVkYzs3I.js",
       "_Drop.es-0dmNqRsO.js",
-      "_select-DB1hc9aL.js",
+      "_select-BVslTBUB.js",
       "_ChartLineUp.es-CI1KitRB.js",
       "resources/js/app.jsx",
       "_Clock.es-CJ1FnhOR.js",
@@ -1442,7 +1442,7 @@
       "_ReviewStars-C6_cTyo4.js",
       "_Users.es-Dt7_imoT.js",
       "_avatar-ByoSoLBq.js",
-      "_RiskWarning-DMorgd81.js",
+      "_RiskWarning-CZ1UpAh4.js",
       "_badge-CIaY-zAU.js",
       "_button-Blpika4e.js",
       "_skeleton-CjeBHd2A.js"
@@ -1461,7 +1461,7 @@
     ]
   },
   "resources/js/pages/PaymentMethods.jsx": {
-    "file": "assets/PaymentMethods-BJVt0Vnc.js",
+    "file": "assets/PaymentMethods-BSwnNkxc.js",
     "name": "PaymentMethods",
     "src": "resources/js/pages/PaymentMethods.jsx",
     "isDynamicEntry": true,
@@ -1470,10 +1470,10 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "_Bank.es-DVkYzs3I.js",
-      "_DashboardLayout-DTOpcN9G.js",
-      "_select-DB1hc9aL.js",
+      "_DashboardLayout-CQwehTTQ.js",
+      "_select-BVslTBUB.js",
       "_CreditCard.es-pS0vIvTg.js",
       "_CurrencyDollar.es-DTe-YDaN.js",
       "_Plus.es-Cj3rjC6V.js",
@@ -1485,7 +1485,7 @@
     ]
   },
   "resources/js/pages/Reviews.jsx": {
-    "file": "assets/Reviews-CmwtLhKO.js",
+    "file": "assets/Reviews-D49EJiF8.js",
     "name": "Reviews",
     "src": "resources/js/pages/Reviews.jsx",
     "isDynamicEntry": true,
@@ -1495,7 +1495,7 @@
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
       "_ArrowRight.es-CL8mICnE.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_SiteLogo-_qxxuKgd.js",
       "_Star.es-8Ga_ORwU.js",
       "_ReviewStars-C6_cTyo4.js",
@@ -1506,7 +1506,7 @@
     ]
   },
   "resources/js/pages/Security.jsx": {
-    "file": "assets/Security-CK3hUfrg.js",
+    "file": "assets/Security-BzrA3gz2.js",
     "name": "Security",
     "src": "resources/js/pages/Security.jsx",
     "isDynamicEntry": true,
@@ -1515,14 +1515,14 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "resources/js/app.jsx",
       "_SiteLogo-_qxxuKgd.js",
       "_skeleton-CjeBHd2A.js"
     ]
   },
   "resources/js/pages/Settings.jsx": {
-    "file": "assets/Settings-Ca3bgFIl.js",
+    "file": "assets/Settings-B-rmme45.js",
     "name": "Settings",
     "src": "resources/js/pages/Settings.jsx",
     "isDynamicEntry": true,
@@ -1531,9 +1531,9 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_Camera.es-C865_0Wo.js",
-      "_select-DB1hc9aL.js",
+      "_select-BVslTBUB.js",
       "_SiteLogo-_qxxuKgd.js",
       "_avatar-ByoSoLBq.js",
       "_switch-CJIQV_mz.js",
@@ -1543,7 +1543,7 @@
     ]
   },
   "resources/js/pages/Trade/Confirm.jsx": {
-    "file": "assets/Confirm-ojVYCVVx.js",
+    "file": "assets/Confirm-BQ4qklj2.js",
     "name": "Confirm",
     "src": "resources/js/pages/Trade/Confirm.jsx",
     "isDynamicEntry": true,
@@ -1552,7 +1552,7 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "resources/js/app.jsx",
       "_FileImage.es-DSg0-jUS.js",
       "_IdentificationCard.es-yx-QUTFJ.js",
@@ -1561,14 +1561,14 @@
       "_Star.es-8Ga_ORwU.js",
       "_UploadSimple.es-BrS9y0mT.js",
       "_TradeCountdown-1raCiALQ.js",
-      "_use-trade-channel-CL1dQLce.js",
+      "_use-trade-channel-Bb8pagZ-.js",
       "_badge-CIaY-zAU.js",
       "_button-Blpika4e.js",
       "_skeleton-CjeBHd2A.js"
     ]
   },
   "resources/js/pages/Trade/Meeting.jsx": {
-    "file": "assets/Meeting-BfzjcYLn.js",
+    "file": "assets/Meeting-CszUdBaK.js",
     "name": "Meeting",
     "src": "resources/js/pages/Trade/Meeting.jsx",
     "isDynamicEntry": true,
@@ -1577,20 +1577,20 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "resources/js/app.jsx",
       "_Handshake.es-DvhrN65V.js",
       "_MapPin.es-CsJh83Nn.js",
       "_SiteLogo-_qxxuKgd.js",
       "_esm-bNkTGWlm.js",
       "_TradeCountdown-1raCiALQ.js",
-      "_use-trade-channel-CL1dQLce.js",
+      "_use-trade-channel-Bb8pagZ-.js",
       "_button-Blpika4e.js",
       "_skeleton-CjeBHd2A.js"
     ]
   },
   "resources/js/pages/Trade/Release.jsx": {
-    "file": "assets/Release-D8P_t0Zl.js",
+    "file": "assets/Release-ZUjJ_D0F.js",
     "name": "Release",
     "src": "resources/js/pages/Trade/Release.jsx",
     "isDynamicEntry": true,
@@ -1599,20 +1599,20 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
+      "_ConnectWallet-Clty07Xi.js",
       "resources/js/app.jsx",
       "_FileImage.es-DSg0-jUS.js",
       "_IdentificationCard.es-yx-QUTFJ.js",
       "_MapPin.es-CsJh83Nn.js",
       "_SiteLogo-_qxxuKgd.js",
-      "_use-trade-channel-CL1dQLce.js",
+      "_use-trade-channel-Bb8pagZ-.js",
       "_badge-CIaY-zAU.js",
       "_button-Blpika4e.js",
       "_skeleton-CjeBHd2A.js"
     ]
   },
   "resources/js/pages/Trade/Start.jsx": {
-    "file": "assets/Start-DzXHXXra.js",
+    "file": "assets/Start-BuNFCZUK.js",
     "name": "Start",
     "src": "resources/js/pages/Trade/Start.jsx",
     "isDynamicEntry": true,
@@ -1622,19 +1622,19 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
-      "_select-DB1hc9aL.js",
+      "_ConnectWallet-Clty07Xi.js",
+      "_select-BVslTBUB.js",
       "resources/js/app.jsx",
       "_SiteLogo-_qxxuKgd.js",
       "_avatar-ByoSoLBq.js",
-      "_RiskWarning-DMorgd81.js",
+      "_RiskWarning-CZ1UpAh4.js",
       "_badge-CIaY-zAU.js",
       "_button-Blpika4e.js",
       "_skeleton-CjeBHd2A.js"
     ]
   },
   "resources/js/pages/Trade/Verify.jsx": {
-    "file": "assets/Verify-OZPPIK9i.js",
+    "file": "assets/Verify-B-welba8.js",
     "name": "Verify",
     "src": "resources/js/pages/Trade/Verify.jsx",
     "isDynamicEntry": true,
@@ -1651,7 +1651,7 @@
     ]
   },
   "resources/js/pages/Trades.jsx": {
-    "file": "assets/Trades-CWCdDUbN.js",
+    "file": "assets/Trades-Bfqj-s_p.js",
     "name": "Trades",
     "src": "resources/js/pages/Trades.jsx",
     "isDynamicEntry": true,
@@ -1660,8 +1660,8 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_ConnectWallet-Clty07Xi.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_MagnifyingGlass.es-CbQ2mjhS.js",
       "_SiteLogo-_qxxuKgd.js",
       "_button-Blpika4e.js",
@@ -1669,7 +1669,7 @@
     ]
   },
   "resources/js/pages/TradingLinks.jsx": {
-    "file": "assets/TradingLinks-CBNTAKey.js",
+    "file": "assets/TradingLinks-DvgGL1H3.js",
     "name": "TradingLinks",
     "src": "resources/js/pages/TradingLinks.jsx",
     "isDynamicEntry": true,
@@ -1678,8 +1678,8 @@
       "_dist-CZDv56W9.js",
       "_IconBase.es-bvfvU-g4.js",
       "_label-C_7k9O1S.js",
-      "_ConnectWallet-BxAgFP6b.js",
-      "_DashboardLayout-DTOpcN9G.js",
+      "_ConnectWallet-Clty07Xi.js",
+      "_DashboardLayout-CQwehTTQ.js",
       "_Plus.es-Cj3rjC6V.js",
       "_SiteLogo-_qxxuKgd.js",
       "_Trash.es-Cb-yD8yA.js",

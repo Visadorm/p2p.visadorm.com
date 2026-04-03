@@ -153,6 +153,10 @@ class MerchantController extends Controller
             ], 404);
         }
 
+        // Refresh badges live to ensure they're current (doesn't depend on queue)
+        app(\App\Services\MerchantBadgeService::class)->updateBadges($merchant);
+        $merchant->refresh();
+
         $reviews = $merchant->reviews()
             ->where('is_hidden', false)
             ->latest('created_at')
