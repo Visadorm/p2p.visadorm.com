@@ -11,7 +11,6 @@ import {
   Warning,
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import ConnectWallet from "@/components/ConnectWallet"
@@ -42,7 +41,6 @@ export default function TradeMeeting({ tradeHash }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [timeLeft, setTimeLeft] = useState(0)
-  const [confirming, setConfirming] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
   const fetchTrade = useCallback(async () => {
@@ -85,27 +83,6 @@ export default function TradeMeeting({ tradeHash }) {
     }, 1000)
     return () => clearInterval(timer)
   }, [timeLeft])
-
-  const handleConfirm = async () => {
-    // For cash meetings: capture location as meeting proof before confirming
-    setConfirming(true)
-    try {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          () => {}, // Success: location obtained (proof captured via browser)
-          () => {}, // Failure: proceed anyway (location is optional)
-          { timeout: 3000 }
-        )
-      }
-      const res = await api.confirmTrade(tradeHash)
-      await fetchTrade()
-      toast.success(res.message || "Meeting confirmed, USDC released")
-    } catch (err) {
-      toast.error(err.message || "Failed to confirm trade")
-    } finally {
-      setConfirming(false)
-    }
-  }
 
   const handleCancel = async () => {
     setCancelling(true)
@@ -177,7 +154,6 @@ export default function TradeMeeting({ tradeHash }) {
   const tokenId = trade?.nft_token_id || "N/A"
   const escrowAmount = amountUsdc
 
-  const canConfirm = tradeStatus === "pending" || tradeStatus === "escrow_locked" || tradeStatus === "payment_sent"
   const canCancel = tradeStatus === "pending" || tradeStatus === "escrow_locked"
   const isTerminal = ["completed", "cancelled", "expired", "disputed"].includes(tradeStatus)
 
@@ -312,30 +288,28 @@ export default function TradeMeeting({ tradeHash }) {
           {/* QR Code Card */}
           <NFTQRCode tradeHash={tradeHash} tokenId={tokenId} amountUsdc={trade?.amount_usdc} />
 
-          {/* Meeting Status */}
-          {!isTerminal && (
-            <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
-              <span className="relative flex size-3">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
-              </span>
-              <span className="text-sm font-semibold text-amber-400">Pending Confirmation</span>
+          {/* Completed Banner */}
+          {tradeStatus === "completed" && (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-6 text-center">
+              <CheckCircle weight="fill" size={40} className="text-emerald-500" />
+              <div>
+                <p className="text-lg font-semibold text-emerald-400">Trade Completed</p>
+                <p className="text-sm text-muted-foreground">USDC has been released to your wallet</p>
+              </div>
             </div>
           )}
 
           {/* Action Buttons */}
           {!isTerminal && (
             <div className="space-y-3">
-              {canConfirm && (
-                <Button
-                  size="lg"
-                  className="w-full gap-2 bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
-                  disabled={confirming}
-                  onClick={handleConfirm}
-                >
-                  <CheckCircle weight="bold" size={20} />
-                  {confirming ? "Confirming..." : "Confirm Meeting & Release USDC"}
-                </Button>
+              {tradeStatus === "escrow_locked" && (
+                <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
+                  <span className="relative flex size-3">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
+                  </span>
+                  <span className="text-sm font-semibold text-amber-400">Show QR to merchant. Waiting for merchant to scan and confirm...</span>
+                </div>
               )}
               {canCancel && (
                 <div className="text-center">
