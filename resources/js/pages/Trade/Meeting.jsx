@@ -177,7 +177,7 @@ export default function TradeMeeting({ tradeHash }) {
   const tokenId = trade?.nft_token_id || "N/A"
   const escrowAmount = amountUsdc
 
-  const canConfirm = tradeStatus === "payment_sent"
+  const canConfirm = tradeStatus === "pending" || tradeStatus === "escrow_locked" || tradeStatus === "payment_sent"
   const canCancel = tradeStatus === "pending" || tradeStatus === "escrow_locked"
   const isTerminal = ["completed", "cancelled", "expired", "disputed"].includes(tradeStatus)
 

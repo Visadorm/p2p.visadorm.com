@@ -132,9 +132,9 @@ class DisputeControllerTest extends TestCase
 
     public function test_store_returns_422_for_invalid_trade_status(): void
     {
-        // Pending is not EscrowLocked or PaymentSent
+        // Completed trades cannot have disputes opened
         $buyerWallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-        $trade = $this->createTrade(TradeStatus::Pending, $buyerWallet);
+        $trade = $this->createTrade(TradeStatus::Completed, $buyerWallet);
 
         $buyer = $this->createBuyerUser($buyerWallet);
         $this->createMerchantForUser($buyer);

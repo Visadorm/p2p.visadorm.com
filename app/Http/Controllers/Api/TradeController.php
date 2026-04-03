@@ -465,8 +465,8 @@ class TradeController extends Controller
 
         $isCashMeeting = in_array(strtolower($trade->payment_method), ['cash_meeting', 'cash meeting']);
         $allowedStatuses = $isCashMeeting
-            ? [TradeStatus::EscrowLocked, TradeStatus::PaymentSent]
-            : [TradeStatus::PaymentSent];
+            ? [TradeStatus::Pending, TradeStatus::EscrowLocked, TradeStatus::PaymentSent]
+            : [TradeStatus::Pending, TradeStatus::PaymentSent];
 
         if (! in_array($trade->status, $allowedStatuses)) {
             return response()->json([

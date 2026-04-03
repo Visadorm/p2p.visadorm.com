@@ -463,7 +463,7 @@ class TradeControllerTest extends TestCase
 
     public function test_confirm_rejects_wrong_status(): void
     {
-        $trade = $this->createTrade(TradeStatus::Pending);
+        $trade = $this->createTrade(TradeStatus::Cancelled);
 
         Sanctum::actingAs($this->merchantUser);
 

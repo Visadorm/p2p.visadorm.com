@@ -747,7 +747,7 @@ export default function TradeConfirm({ tradeHash }) {
                   >
                     {cancelling ? "Cancelling..." : "Cancel Trade"}
                   </button>
-                  {(tradeStatus === "escrow_locked" || tradeStatus === "payment_sent") && (
+                  {(tradeStatus === "pending" || tradeStatus === "escrow_locked" || tradeStatus === "payment_sent") && (
                     <button
                       onClick={() => setShowDisputeForm(!showDisputeForm)}
                       className="text-sm font-medium text-amber-400 transition-colors hover:text-amber-300"
