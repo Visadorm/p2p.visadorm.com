@@ -165,15 +165,17 @@ export default function TradeStart({ slug }) {
 
       // Step 2: Call API to initiate trade (backend locks escrow on-chain)
       setTradeStep("initiating")
+      const selectedPm = paymentMethods.find(m => String(m.id) === paymentMethod) || paymentMethods.find(m => (m.provider || m.label) === paymentMethod)
+      const pmName = selectedPm?.provider || selectedPm?.label || paymentMethod
       const res = await api.initiateTrade(slug, {
         amount_usdc: numAmount,
         currency_code: currency,
-        payment_method: paymentMethod,
+        payment_method: pmName,
       })
       toast.success(res.message || "Trade initiated")
       const tradeHash = res.data?.trade_hash
       if (tradeHash) {
-        const isCashMeeting = paymentMethod === "cash_meeting" || paymentMethods.find(m => (m.provider || m.label) === paymentMethod)?.type === "cash_meeting"
+        const isCashMeeting = selectedPm?.type === "cash_meeting" || pmName.toLowerCase() === "cash meeting"
         router.visit(isCashMeeting ? `/trade/${tradeHash}/meeting` : `/trade/${tradeHash}/confirm`)
       }
     } catch (err) {
@@ -351,19 +353,25 @@ export default function TradeStart({ slug }) {
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.map((m) => (
-                    <SelectItem key={m.id || m.provider || m.label} value={m.provider || m.label}>
-                      {m.label || m.provider}
-                    </SelectItem>
-                  ))}
+                  {paymentMethods.map((m) => {
+                    const uniqueValue = m.id ? String(m.id) : (m.provider || m.label)
+                    const displayName = m.type === "cash_meeting" && m.location
+                      ? `Cash Meeting — ${m.location}`
+                      : (m.label || m.provider)
+                    return (
+                      <SelectItem key={uniqueValue} value={uniqueValue}>
+                        {displayName}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
 
             {/* Cash Meeting Location */}
             {(() => {
-              const selectedPm = paymentMethods.find(m => (m.provider || m.label) === paymentMethod)
-              const isCash = paymentMethod === "cash_meeting" || selectedPm?.type === "cash_meeting"
+              const selectedPm = paymentMethods.find(m => String(m.id) === paymentMethod) || paymentMethods.find(m => (m.provider || m.label) === paymentMethod)
+              const isCash = selectedPm?.type === "cash_meeting"
               if (isCash && selectedPm?.location) {
                 return (
                   <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
