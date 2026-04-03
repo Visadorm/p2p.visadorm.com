@@ -11,6 +11,7 @@ import {
   Warning,
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import ConnectWallet from "@/components/ConnectWallet"
@@ -42,6 +43,10 @@ export default function TradeMeeting({ tradeHash }) {
   const [error, setError] = useState(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [cancelling, setCancelling] = useState(false)
+  const [markingPaid, setMarkingPaid] = useState(false)
+  const [showDisputeForm, setShowDisputeForm] = useState(false)
+  const [disputeReason, setDisputeReason] = useState("")
+  const [disputing, setDisputing] = useState(false)
 
   const fetchTrade = useCallback(async () => {
     try {
@@ -94,6 +99,38 @@ export default function TradeMeeting({ tradeHash }) {
       toast.error(err.message || "Failed to cancel trade")
     } finally {
       setCancelling(false)
+    }
+  }
+
+  const handleMarkPaid = async () => {
+    setMarkingPaid(true)
+    try {
+      const res = await api.markPaid(tradeHash)
+      setTrade(res.data)
+      toast.success(res.message || "Payment marked as sent")
+    } catch (err) {
+      toast.error(err.message || "Failed to mark payment")
+    } finally {
+      setMarkingPaid(false)
+    }
+  }
+
+  const handleDispute = async () => {
+    if (!disputeReason.trim()) {
+      toast.error("Please provide a reason for the dispute")
+      return
+    }
+    setDisputing(true)
+    try {
+      await api.openDispute(tradeHash, disputeReason)
+      toast.success("Dispute opened")
+      setShowDisputeForm(false)
+      setDisputeReason("")
+      await fetchTrade()
+    } catch (err) {
+      toast.error(err.message || "Failed to open dispute")
+    } finally {
+      setDisputing(false)
     }
   }
 
@@ -299,20 +336,55 @@ export default function TradeMeeting({ tradeHash }) {
             </div>
           )}
 
+          {/* Dispute Form */}
+          {showDisputeForm && (
+            <Card className="border-amber-500/20 bg-amber-500/5">
+              <CardContent className="pt-5 space-y-3">
+                <p className="text-sm font-medium text-amber-400">Describe the issue</p>
+                <textarea
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  placeholder="Explain why you're opening this dispute..."
+                  rows={3}
+                  maxLength={2000}
+                  className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                />
+                <Button
+                  className="w-full gap-2 bg-amber-600 hover:bg-amber-700"
+                  onClick={handleDispute}
+                  disabled={disputing || !disputeReason.trim()}
+                >
+                  {disputing ? "Submitting..." : "Submit Dispute"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Action Buttons */}
           {!isTerminal && (
             <div className="space-y-3">
               {tradeStatus === "escrow_locked" && (
+                <Button
+                  size="lg"
+                  className="w-full gap-2 bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
+                  disabled={markingPaid}
+                  onClick={handleMarkPaid}
+                >
+                  <Handshake weight="bold" size={20} />
+                  {markingPaid ? "Marking..." : "I Paid — Met the Seller"}
+                </Button>
+              )}
+              {tradeStatus === "payment_sent" && (
                 <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
                   <span className="relative flex size-3">
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
                     <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
                   </span>
-                  <span className="text-sm font-semibold text-amber-400">Show QR to merchant. Waiting for merchant to scan and confirm...</span>
+                  <span className="text-sm font-semibold text-amber-400">Waiting for merchant to confirm and release USDC...</span>
                 </div>
               )}
-              {canCancel && (
-                <div className="text-center">
+              <div className="flex items-center justify-center gap-4">
+                {canCancel && (
                   <button
                     onClick={handleCancel}
                     disabled={cancelling}
@@ -320,8 +392,16 @@ export default function TradeMeeting({ tradeHash }) {
                   >
                     {cancelling ? "Cancelling..." : "Cancel Trade"}
                   </button>
-                </div>
-              )}
+                )}
+                {(tradeStatus === "escrow_locked" || tradeStatus === "payment_sent") && (
+                  <button
+                    onClick={() => setShowDisputeForm(!showDisputeForm)}
+                    className="text-sm font-medium text-amber-400 transition-colors hover:text-amber-300"
+                  >
+                    Open Dispute
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
