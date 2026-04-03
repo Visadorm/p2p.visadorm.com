@@ -315,7 +315,7 @@ class TradeController extends Controller
             ], 403);
         }
 
-        if (! in_array($trade->status, [TradeStatus::EscrowLocked])) {
+        if (! in_array($trade->status, [TradeStatus::Pending, TradeStatus::EscrowLocked])) {
             return response()->json([
                 'message' => __('p2p.trade_invalid_status'),
             ], 422);
@@ -354,7 +354,7 @@ class TradeController extends Controller
             ], 403);
         }
 
-        if (! in_array($trade->status, [TradeStatus::EscrowLocked, TradeStatus::PaymentSent])) {
+        if (! in_array($trade->status, [TradeStatus::Pending, TradeStatus::EscrowLocked, TradeStatus::PaymentSent])) {
             return response()->json([
                 'message' => __('p2p.trade_invalid_status'),
             ], 422);
@@ -391,7 +391,7 @@ class TradeController extends Controller
             ], 403);
         }
 
-        if (! in_array($trade->status, [TradeStatus::EscrowLocked, TradeStatus::PaymentSent])) {
+        if (! in_array($trade->status, [TradeStatus::Pending, TradeStatus::EscrowLocked, TradeStatus::PaymentSent])) {
             return response()->json([
                 'message' => __('p2p.trade_invalid_status'),
             ], 422);

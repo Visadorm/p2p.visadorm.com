@@ -337,7 +337,7 @@ class TradeControllerTest extends TestCase
     public function test_mark_paid_rejects_wrong_status(): void
     {
         $buyerWallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-        $trade = $this->createTrade(TradeStatus::Pending, $buyerWallet);
+        $trade = $this->createTrade(TradeStatus::Completed, $buyerWallet);
 
         $buyer = $this->createBuyerUser($buyerWallet);
         $rank = MerchantRank::where('slug', 'new-member')->first();
