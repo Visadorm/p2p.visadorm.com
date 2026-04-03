@@ -193,8 +193,8 @@ export default function TradeRelease({ tradeHash }) {
   const idProofStatus = trade?.buyer_id_status?.value || trade?.buyer_id_status || null
 
   const isCashMeeting = ["cash_meeting", "cash meeting"].includes((trade?.payment_method || "").toLowerCase())
-  const canConfirm = tradeStatus === "payment_sent" || (isCashMeeting && (tradeStatus === "escrow_locked" || tradeStatus === "pending"))
-  const canDispute = ["pending", "escrow_locked", "payment_sent"].includes(tradeStatus)
+  const canConfirm = tradeStatus === "payment_sent" || (isCashMeeting && tradeStatus === "escrow_locked")
+  const canDispute = ["escrow_locked", "payment_sent"].includes(tradeStatus)
   const isTerminal = ["completed", "cancelled", "expired", "disputed"].includes(tradeStatus)
 
   return (
@@ -316,8 +316,8 @@ export default function TradeRelease({ tradeHash }) {
             </Card>
           )}
 
-          {/* Bank Proof */}
-          <Card className="border-border/50">
+          {/* Bank Proof (non-cash only) */}
+          {!isCashMeeting && <Card className="border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -403,10 +403,10 @@ export default function TradeRelease({ tradeHash }) {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
-          {/* ID Verification */}
-          <Card className="border-border/50">
+          {/* ID Verification (non-cash only) */}
+          {!isCashMeeting && <Card className="border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -492,7 +492,7 @@ export default function TradeRelease({ tradeHash }) {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Platform Fee */}
           <Card className="border-border/50">

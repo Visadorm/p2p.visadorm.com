@@ -22,6 +22,7 @@ import ConnectWallet from "@/components/ConnectWallet"
 import SiteLogo from "@/components/SiteLogo"
 import TradeStatusTimeline from "@/components/TradeStatusTimeline"
 import TradeCountdown from "@/components/TradeCountdown"
+import NFTQRCode from "@/components/NFTQRCode"
 import { useWallet } from "@/hooks/useWallet"
 import { api } from "@/lib/api"
 import { useTradeChannel } from "@/hooks/use-trade-channel"
@@ -286,15 +287,14 @@ export default function TradeConfirm({ tradeHash }) {
   const currencyCode = trade?.currency_code || ""
   const merchantName = trade?.merchant?.username || "Merchant"
   const paymentMethodName = trade?.payment_method || ""
+  const isCashMeeting = ["cash_meeting", "cash meeting"].includes(paymentMethodName.toLowerCase())
   const hasBankProof = !!trade?.bank_proof_path || !!bankProof
   const hasIdProof = !!trade?.buyer_id_path || !!idProof
 
   // Determine if actions are available based on status
   const isUploading = uploadingBank || uploadingId
-  const isExpired = trade?.expires_at && new Date(trade.expires_at) < new Date()
-  const canMarkPaid = (tradeStatus === "pending" || tradeStatus === "escrow_locked") && !isUploading && !isExpired
+  const canMarkPaid = tradeStatus === "escrow_locked" && !isUploading && !isCashMeeting
   const canCancel = (tradeStatus === "pending" || tradeStatus === "escrow_locked") && !isUploading
-  const canUpload = !isExpired || tradeStatus === "payment_sent"
   const isTerminal = ["completed", "cancelled", "expired", "disputed"].includes(tradeStatus)
 
   // Payment details from trading link
@@ -412,8 +412,39 @@ export default function TradeConfirm({ tradeHash }) {
             </CardContent>
           </Card>
 
-          {/* Payment Details from merchant's payment method */}
-          {trade?.merchant && (
+          {/* Cash Meeting: QR Code + Meeting Location */}
+          {isCashMeeting && !isTerminal && (
+            <>
+              <NFTQRCode tradeHash={trade?.trade_hash} tokenId={trade?.nft_token_id} amountUsdc={amountUsdc} />
+              {trade?.meeting_location && (
+                <Card className="border-border/50">
+                  <CardContent className="flex items-center gap-3 py-4">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10">
+                      <span className="text-amber-400 text-lg">📍</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Meeting Location</p>
+                      <p className="text-sm text-muted-foreground">{trade.meeting_location}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {tradeStatus === "escrow_locked" && (
+                <Card className="border-blue-500/20 bg-blue-500/5">
+                  <CardContent className="flex items-center gap-3 py-4">
+                    <span className="relative flex size-3">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                      <span className="relative inline-flex size-3 rounded-full bg-blue-500" />
+                    </span>
+                    <span className="text-sm font-semibold text-blue-400">Show this QR code to the merchant at your meeting. They will scan it to verify and release USDC.</span>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+
+          {/* Payment Details from merchant's payment method (non-cash only) */}
+          {!isCashMeeting && trade?.merchant && (
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="text-base">Payment Details</CardTitle>
@@ -477,8 +508,8 @@ export default function TradeConfirm({ tradeHash }) {
             </Card>
           )}
 
-          {/* Upload Bank Proof */}
-          {!isTerminal && (
+          {/* Upload Bank Proof (non-cash only) */}
+          {!isTerminal && !isCashMeeting && (
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -542,8 +573,8 @@ export default function TradeConfirm({ tradeHash }) {
             </Card>
           )}
 
-          {/* Upload ID (Optional) */}
-          {!isTerminal && (
+          {/* Upload ID (Optional, non-cash only) */}
+          {!isTerminal && !isCashMeeting && (
             <Card className="border-border/50">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -731,13 +762,15 @@ export default function TradeConfirm({ tradeHash }) {
                   {isUploading ? "Uploading..." : markingPaid ? "Marking..." : "I Paid"}
                 </Button>
               )}
-              {tradeStatus === "payment_sent" && (
+              {(tradeStatus === "payment_sent" || (isCashMeeting && tradeStatus === "escrow_locked")) && (
                 <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
                   <span className="relative flex size-3">
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
                     <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
                   </span>
-                  <span className="text-sm font-semibold text-amber-400">Waiting for merchant confirmation...</span>
+                  <span className="text-sm font-semibold text-amber-400">
+                    {isCashMeeting ? "Waiting for merchant to scan QR and confirm..." : "Waiting for merchant confirmation..."}
+                  </span>
                 </div>
               )}
               {canCancel && (
@@ -749,7 +782,7 @@ export default function TradeConfirm({ tradeHash }) {
                   >
                     {cancelling ? "Cancelling..." : "Cancel Trade"}
                   </button>
-                  {(tradeStatus === "pending" || tradeStatus === "escrow_locked" || tradeStatus === "payment_sent") && (
+                  {(tradeStatus === "escrow_locked" || tradeStatus === "payment_sent") && (
                     <button
                       onClick={() => setShowDisputeForm(!showDisputeForm)}
                       className="text-sm font-medium text-amber-400 transition-colors hover:text-amber-300"
