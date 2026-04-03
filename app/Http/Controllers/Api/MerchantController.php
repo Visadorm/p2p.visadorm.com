@@ -24,7 +24,7 @@ class MerchantController extends Controller
     {
         $merchant = $request->merchant;
 
-        $activeTrades = $merchant->trades()
+        $activeTrades = $merchant->allTrades()
             ->whereIn('status', [
                 TradeStatus::Pending,
                 TradeStatus::EscrowLocked,
@@ -32,7 +32,7 @@ class MerchantController extends Controller
             ])
             ->count();
 
-        $openDisputes = $merchant->trades()
+        $openDisputes = $merchant->allTrades()
             ->where('status', TradeStatus::Disputed)
             ->count();
 

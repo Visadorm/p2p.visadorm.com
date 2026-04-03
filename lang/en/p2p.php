@@ -163,7 +163,7 @@ return [
     // API Reviews
     'review_created' => 'Review submitted successfully.',
     'review_already_exists' => 'You have already reviewed this trade.',
-    'review_not_buyer' => 'Only the buyer can leave a review.',
+    'review_not_party' => 'You are not a party to this trade.',
     'review_trade_not_completed' => 'Trade must be completed to leave a review.',
 
     // API KYC

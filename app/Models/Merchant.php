@@ -115,8 +115,10 @@ class Merchant extends Model
      */
     public function allTrades(): \Illuminate\Database\Eloquent\Builder
     {
-        return Trade::where('merchant_id', $this->id)
-            ->orWhere('buyer_wallet', $this->wallet_address);
+        return Trade::where(function ($q) {
+            $q->where('merchant_id', $this->id)
+              ->orWhere('buyer_wallet', $this->wallet_address);
+        });
     }
 
     public function reviews(): HasMany

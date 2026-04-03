@@ -32,15 +32,15 @@ class MerchantTradeController extends Controller
         $walletAddress = $merchant->wallet_address;
 
         if ($role === 'buyer') {
-            $query = Trade::where('buyer_wallet', $walletAddress)->with(['merchant:id,username,wallet_address', 'tradingLink', 'review']);
+            $query = Trade::where('buyer_wallet', $walletAddress)->with(['merchant:id,username,wallet_address', 'tradingLink', 'review', 'merchantReview']);
         } elseif ($role === 'merchant') {
-            $query = $merchant->trades()->with(['tradingLink', 'review']);
+            $query = $merchant->trades()->with(['tradingLink', 'review', 'merchantReview']);
         } else {
             // All trades — both as merchant and as buyer
             $query = Trade::where(function ($q) use ($merchant, $walletAddress) {
                 $q->where('merchant_id', $merchant->id)
                   ->orWhere('buyer_wallet', $walletAddress);
-            })->with(['merchant:id,username,wallet_address', 'tradingLink', 'review']);
+            })->with(['merchant:id,username,wallet_address', 'tradingLink', 'review', 'merchantReview']);
         }
 
         if ($request->filled('search')) {
