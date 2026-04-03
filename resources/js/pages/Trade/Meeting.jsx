@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Info,
   Warning,
+  Star,
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -47,6 +48,12 @@ export default function TradeMeeting({ tradeHash }) {
   const [showDisputeForm, setShowDisputeForm] = useState(false)
   const [disputeReason, setDisputeReason] = useState("")
   const [disputing, setDisputing] = useState(false)
+
+  // Review state
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState("")
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [reviewSubmitted, setReviewSubmitted] = useState(false)
 
   const fetchTrade = useCallback(async () => {
     try {
@@ -131,6 +138,26 @@ export default function TradeMeeting({ tradeHash }) {
       toast.error(err.message || "Failed to open dispute")
     } finally {
       setDisputing(false)
+    }
+  }
+
+  const handleSubmitReview = async () => {
+    if (reviewRating < 1) {
+      toast.error("Select a rating")
+      return
+    }
+    setSubmittingReview(true)
+    try {
+      await api.createReview(tradeHash, {
+        rating: reviewRating,
+        comment: reviewComment || undefined,
+      })
+      toast.success("Review submitted")
+      setReviewSubmitted(true)
+    } catch (err) {
+      toast.error(err.message || "Failed to submit review")
+    } finally {
+      setSubmittingReview(false)
     }
   }
 
@@ -333,6 +360,64 @@ export default function TradeMeeting({ tradeHash }) {
                 <p className="text-lg font-semibold text-emerald-400">Trade Completed</p>
                 <p className="text-sm text-muted-foreground">USDC has been released to your wallet</p>
               </div>
+            </div>
+          )}
+
+          {/* Review Form — shows after trade completes */}
+          {tradeStatus === "completed" && !reviewSubmitted && !trade?.review && (
+            <Card className="border-emerald-500/20 bg-emerald-500/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Star weight="fill" size={20} className="text-amber-400" />
+                  Rate this trade
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setReviewRating(star)}
+                        className="transition-transform hover:scale-110"
+                      >
+                        <Star
+                          weight={star <= reviewRating ? "fill" : "regular"}
+                          size={32}
+                          className={star <= reviewRating ? "text-amber-400" : "text-muted-foreground/30"}
+                        />
+                      </button>
+                    ))}
+                    {reviewRating > 0 && (
+                      <span className="ml-2 text-sm text-muted-foreground">{reviewRating}/5</span>
+                    )}
+                  </div>
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Leave a comment (optional)"
+                    rows={3}
+                    maxLength={1000}
+                    className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  <Button
+                    className="w-full gap-2"
+                    onClick={handleSubmitReview}
+                    disabled={submittingReview || reviewRating < 1}
+                  >
+                    <Star weight="bold" size={16} />
+                    {submittingReview ? "Submitting..." : "Submit Review"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(reviewSubmitted || trade?.review) && tradeStatus === "completed" && (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+              <CheckCircle weight="fill" size={18} className="text-emerald-500" />
+              <span className="text-sm font-medium text-emerald-400">Review submitted</span>
             </div>
           )}
 
