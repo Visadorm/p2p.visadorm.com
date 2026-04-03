@@ -87,18 +87,26 @@ export function WalletProvider({ children, blockchain }) {
     }
 
     if (!ethereum && walletType !== "walletconnect") {
-      // Trust and Coinbase mobile wallets connect via WalletConnect QR — fall back silently
-      if (walletType === "trust" || walletType === "coinbase") {
-        return connectWallet("walletconnect")
-      }
-      // Mobile: deep-link into MetaMask in-app browser
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-      if (isMobile && walletType === "metamask") {
-        const dappUrl = window.location.href.replace(/^https?:\/\//, "")
-        window.location.href = `https://metamask.app.link/dapp/${dappUrl}`
-        return null
+      const dappUrl = window.location.href.replace(/^https?:\/\//, "")
+
+      if (isMobile) {
+        // Deep-link into wallet's in-app browser
+        if (walletType === "metamask") {
+          window.location.href = `https://metamask.app.link/dapp/${dappUrl}`
+          return null
+        }
+        if (walletType === "trust") {
+          window.location.href = `https://link.trustwallet.com/open_url?coin_id=60&url=https://${dappUrl}`
+          return null
+        }
+        if (walletType === "coinbase") {
+          window.location.href = `https://go.cb-w.com/dapp?cb_url=https://${dappUrl}`
+          return null
+        }
       }
-      // Desktop: MetaMask not installed — send to download page
+
+      // Desktop: wallet not installed — send to download page
       window.open("https://metamask.io/download/", "_blank")
       return null
     }
