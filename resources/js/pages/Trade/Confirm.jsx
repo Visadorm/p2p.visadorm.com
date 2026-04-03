@@ -291,7 +291,7 @@ export default function TradeConfirm({ tradeHash }) {
 
   // Determine if actions are available based on status
   const isUploading = uploadingBank || uploadingId
-  const canMarkPaid = tradeStatus === "escrow_locked" && !isUploading
+  const canMarkPaid = (tradeStatus === "pending" || tradeStatus === "escrow_locked") && !isUploading
   const canCancel = (tradeStatus === "pending" || tradeStatus === "escrow_locked") && !isUploading
   const isTerminal = ["completed", "cancelled", "expired", "disputed"].includes(tradeStatus)
 
