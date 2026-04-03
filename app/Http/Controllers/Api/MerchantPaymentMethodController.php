@@ -37,7 +37,7 @@ class MerchantPaymentMethodController extends Controller
             'type' => ['required', Rule::enum(PaymentMethodType::class)],
             'provider' => ['required', 'string', 'max:100'],
             'label' => ['required', 'string', 'max:100'],
-            'details' => ['required', 'array'],
+            'details' => ['sometimes', 'nullable', 'array'],
             'logo_url' => ['sometimes', 'nullable', 'string', 'max:255'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'location_lat' => ['sometimes', 'nullable', 'numeric'],

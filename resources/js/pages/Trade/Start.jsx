@@ -14,6 +14,7 @@ import {
   Handshake,
   CurrencyDollar,
   ShieldCheck,
+  MapPin,
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -358,6 +359,27 @@ export default function TradeStart({ slug }) {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Cash Meeting Location */}
+            {(() => {
+              const selectedPm = paymentMethods.find(m => (m.provider || m.label) === paymentMethod)
+              const isCash = paymentMethod === "cash_meeting" || selectedPm?.type === "cash_meeting"
+              if (isCash && selectedPm?.location) {
+                return (
+                  <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+                    <MapPin weight="fill" size={18} className="mt-0.5 shrink-0 text-amber-400" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-400">Meeting Location</p>
+                      <p className="text-sm text-muted-foreground">{selectedPm.location}</p>
+                      {selectedPm.safety_note && (
+                        <p className="mt-1 text-xs text-muted-foreground">{selectedPm.safety_note}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })()}
 
             {/* Buyer Verification Info */}
             {merchant?.buyer_verification === "required" && (

@@ -167,9 +167,8 @@ export default function PaymentMethods() {
           currency: formData.currency || undefined,
         }
       } else if (formData.type === "cash_meeting") {
-        details = {
-          meeting_point: formData.meeting_point || undefined,
-        }
+        details = {}
+        if (formData.meeting_point) details.meeting_point = formData.meeting_point
       }
       // Remove undefined values
       details = Object.fromEntries(Object.entries(details).filter(([, v]) => v))
@@ -179,10 +178,10 @@ export default function PaymentMethods() {
         type: formData.type,
         provider: providerName,
         label: providerName,
-        details,
+        ...(Object.keys(details).length > 0 ? { details } : {}),
         ...(formData.type === "cash_meeting" ? {
-          location: formData.location || undefined,
-          safety_note: formData.safety_note || undefined,
+          location: formData.location || null,
+          safety_note: formData.safety_note || null,
         } : {}),
       }
       if (editingMethod) {
