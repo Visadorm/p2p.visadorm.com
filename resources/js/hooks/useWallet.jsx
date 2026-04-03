@@ -347,18 +347,6 @@ export function WalletProvider({ children, blockchain }) {
             }),
         )
         .finally(() => setIsInitialized(true))
-    } else if (!savedToken && window.ethereum && (window.ethereum.isTrust || window.ethereum.isCoinbaseWallet)) {
-      // Inside wallet's in-app browser — auto-connect without requiring button click
-      connectWallet("injected")
-        .then((result) => {
-          if (result) {
-            setIsInitialized(false) // will re-trigger after full auth
-            connect("injected").catch(() => {}).finally(() => setIsInitialized(true))
-          } else {
-            setIsInitialized(true)
-          }
-        })
-        .catch(() => setIsInitialized(true))
     } else {
       setIsInitialized(true)
     }
