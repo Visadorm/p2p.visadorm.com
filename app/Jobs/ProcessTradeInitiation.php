@@ -29,32 +29,54 @@ class ProcessTradeInitiation implements ShouldQueue
 
     public function handle(BlockchainService $blockchainService): void
     {
+        // Skip if trade already has escrow tx (already initiated on-chain)
+        $this->trade->refresh();
+        if ($this->trade->escrow_tx_hash) {
+            Log::info("Trade {$this->trade->trade_hash}: already on-chain, skipping initiation");
+            return;
+        }
+
+        // Skip if trade moved past pending (cancelled, completed, etc.)
+        if (! in_array($this->trade->status, [TradeStatus::Pending])) {
+            Log::info("Trade {$this->trade->trade_hash}: status is {$this->trade->status->value}, skipping initiation");
+            return;
+        }
+
         $rawAmount = $blockchainService->humanToUsdc((string) $this->trade->amount_usdc);
 
-        $txHash = $blockchainService->initiateTrade(
-            tradeHash: $this->trade->trade_hash,
-            merchant: $this->merchantWallet,
-            buyer: $this->buyerWallet,
-            amount: $rawAmount,
-            isPrivate: $this->isPrivate,
-            expiresAt: $this->trade->expires_at
-                ? $this->trade->expires_at->timestamp
-                : (time() + 3600),
-        );
+        try {
+            $txHash = $blockchainService->initiateTrade(
+                tradeHash: $this->trade->trade_hash,
+                merchant: $this->merchantWallet,
+                buyer: $this->buyerWallet,
+                amount: $rawAmount,
+                isPrivate: $this->isPrivate,
+                expiresAt: $this->trade->expires_at
+                    ? $this->trade->expires_at->timestamp
+                    : (time() + 3600),
+            );
+        } catch (\Throwable $e) {
+            // If "Trade already exists" on-chain, mark as locked and stop retrying
+            if (str_contains($e->getMessage(), 'Trade already exists')) {
+                Log::info("Trade {$this->trade->trade_hash}: already exists on-chain, marking EscrowLocked");
+                $this->trade->refresh();
+                if ($this->trade->status === TradeStatus::Pending) {
+                    $this->trade->update(['status' => TradeStatus::EscrowLocked]);
+                }
+                return;
+            }
+            throw $e;
+        }
 
         $blockchainService->waitForReceipt($txHash);
 
-        // Only update status if trade hasn't already advanced past Pending
+        // Only set EscrowLocked if trade is still Pending (user may have acted while tx was mining)
         $this->trade->refresh();
+        $updateData = ['escrow_tx_hash' => $txHash];
         if ($this->trade->status === TradeStatus::Pending) {
-            $this->trade->update([
-                'status' => TradeStatus::EscrowLocked,
-                'escrow_tx_hash' => $txHash,
-            ]);
-        } else {
-            // Trade already advanced — just store the tx hash
-            $this->trade->update(['escrow_tx_hash' => $txHash]);
+            $updateData['status'] = TradeStatus::EscrowLocked;
         }
+        $this->trade->update($updateData);
 
         $isCashMeeting = in_array(
             strtolower($this->trade->payment_method),
@@ -62,15 +84,22 @@ class ProcessTradeInitiation implements ShouldQueue
         );
 
         if ($isCashMeeting) {
-            $nftTxHash = $blockchainService->mintTradeNFT(
-                $this->trade->trade_hash,
-                $this->trade->meeting_location ?? 'TBD'
-            );
+            try {
+                $nftTxHash = $blockchainService->mintTradeNFT(
+                    $this->trade->trade_hash,
+                    $this->trade->meeting_location ?? 'TBD'
+                );
 
-            $receipt = $blockchainService->waitForReceipt($nftTxHash);
-            $tokenId = $blockchainService->parseNftTokenIdFromReceipt($receipt);
+                $receipt = $blockchainService->waitForReceipt($nftTxHash);
+                $tokenId = $blockchainService->parseNftTokenIdFromReceipt($receipt);
 
-            $this->trade->update(['nft_token_id' => $tokenId]);
+                $this->trade->update(['nft_token_id' => $tokenId]);
+            } catch (\Throwable $e) {
+                Log::error('NFT mint failed (non-fatal)', [
+                    'trade_hash' => $this->trade->trade_hash,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 
