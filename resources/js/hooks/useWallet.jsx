@@ -62,7 +62,16 @@ export function WalletProvider({ children, blockchain }) {
     } else if (walletType === "coinbase") {
       ethereum = window.ethereum?.providers?.find((p) => p.isCoinbaseWallet) || (window.ethereum?.isCoinbaseWallet ? window.ethereum : null)
     } else if (walletType === "trust") {
-      ethereum = window.trustwallet || (window.ethereum?.isTrust ? window.ethereum : null)
+      // Trust Wallet: prefer window.trustwallet provider, wait for injection if needed
+      if (window.trustwallet) {
+        ethereum = window.trustwallet
+      } else if (window.ethereum?.isTrust) {
+        ethereum = window.ethereum
+      } else {
+        // Wait briefly for Trust Wallet provider injection
+        await new Promise(r => setTimeout(r, 500))
+        ethereum = window.trustwallet || (window.ethereum?.isTrust ? window.ethereum : null)
+      }
     } else if (walletType === "walletconnect") {
       try {
         if (!wcProviderInstance) {
@@ -118,6 +127,10 @@ export function WalletProvider({ children, blockchain }) {
       // Check if already connected (no popup) before requesting
       let accounts = await ethereum.request({ method: "eth_accounts" })
       if (!accounts || accounts.length === 0) {
+        // Small delay for Trust Wallet — its provider needs time after injection
+        if (ethereum.isTrust || walletType === "trust") {
+          await new Promise(r => setTimeout(r, 300))
+        }
         accounts = await ethereum.request({ method: "eth_requestAccounts" })
       }
 
