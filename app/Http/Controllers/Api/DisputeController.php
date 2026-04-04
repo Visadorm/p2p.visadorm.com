@@ -46,7 +46,7 @@ class DisputeController extends Controller
             ], 403);
         }
 
-        if (! in_array($trade->status, [TradeStatus::Pending, TradeStatus::EscrowLocked, TradeStatus::PaymentSent])) {
+        if (! in_array($trade->status, [TradeStatus::EscrowLocked, TradeStatus::PaymentSent])) {
             return response()->json([
                 'message' => __('p2p.trade_invalid_status'),
             ], 422);
@@ -115,6 +115,7 @@ class DisputeController extends Controller
     {
         $request->validate([
             'file' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,mp4,webm'],
+            'note' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
 
         $dispute = Dispute::with('trade')->find($disputeId);
@@ -142,7 +143,7 @@ class DisputeController extends Controller
             ], 422);
         }
 
-        $dispute = $this->disputeService->submitEvidence($dispute, $request->file('file'), $userWallet);
+        $dispute = $this->disputeService->submitEvidence($dispute, $request->file('file'), $userWallet, $request->input('note'));
 
         return response()->json([
             'data' => $dispute,

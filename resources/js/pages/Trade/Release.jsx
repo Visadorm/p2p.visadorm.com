@@ -49,6 +49,7 @@ export default function TradeRelease({ tradeHash }) {
   const [disputeReason, setDisputeReason] = useState("")
   const [showDisputeForm, setShowDisputeForm] = useState(false)
   const [uploadingEvidence, setUploadingEvidence] = useState(false)
+  const [evidenceNote, setEvidenceNote] = useState("")
   const evidenceInputRef = useRef(null)
 
   // Review state
@@ -125,8 +126,9 @@ export default function TradeRelease({ tradeHash }) {
     if (!file || !trade?.dispute?.id) return
     setUploadingEvidence(true)
     try {
-      await api.uploadDisputeEvidence(trade.dispute.id, file)
+      await api.uploadDisputeEvidence(trade.dispute.id, file, evidenceNote.trim() || undefined)
       toast.success("Evidence uploaded")
+      setEvidenceNote("")
       await fetchTrade()
     } catch (err) {
       toast.error(err.message || "Failed to upload evidence")
@@ -619,6 +621,14 @@ export default function TradeRelease({ tradeHash }) {
                       ))}
                     </div>
                   )}
+                  <textarea
+                    value={evidenceNote}
+                    onChange={(e) => setEvidenceNote(e.target.value)}
+                    placeholder="Add a note for the admin (explain what happened)..."
+                    rows={2}
+                    maxLength={2000}
+                    className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  />
                   <div className="flex items-center gap-3">
                     <Button
                       variant="outline"

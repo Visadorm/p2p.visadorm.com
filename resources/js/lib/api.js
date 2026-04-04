@@ -299,9 +299,10 @@ export const api = {
     getDispute: (id) =>
         fetch(`${API_BASE}/dispute/${id}`, { headers: headers() }).then(handleResponse),
 
-    uploadDisputeEvidence: (id, file) => {
+    uploadDisputeEvidence: (id, file, note) => {
         const formData = new FormData();
         formData.append('file', file);
+        if (note) formData.append('note', note);
         return fetch(`${API_BASE}/dispute/${id}/evidence`, {
             method: 'POST',
             headers: fileHeaders(),

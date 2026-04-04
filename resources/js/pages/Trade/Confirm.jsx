@@ -66,6 +66,7 @@ export default function TradeConfirm({ tradeHash }) {
   const [disputeReason, setDisputeReason] = useState("")
   const [disputing, setDisputing] = useState(false)
   const [uploadingEvidence, setUploadingEvidence] = useState(false)
+  const [evidenceNote, setEvidenceNote] = useState("")
   const evidenceInputRef = useRef(null)
 
   const bankInputRef = useRef(null)
@@ -201,8 +202,9 @@ export default function TradeConfirm({ tradeHash }) {
     if (!file || !trade?.dispute?.id) return
     setUploadingEvidence(true)
     try {
-      await api.uploadDisputeEvidence(trade.dispute.id, file)
+      await api.uploadDisputeEvidence(trade.dispute.id, file, evidenceNote.trim() || undefined)
       toast.success("Evidence uploaded")
+      setEvidenceNote("")
       await fetchTrade()
     } catch (err) {
       toast.error(err.message || "Failed to upload evidence")
@@ -336,7 +338,7 @@ export default function TradeConfirm({ tradeHash }) {
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
                   <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
                 </span>
-                <span className="text-sm font-semibold text-amber-400">Locking escrow on-chain... This usually takes 10-30 seconds.</span>
+                <span className="text-sm font-semibold text-amber-400">USDC is being locked in escrow... This usually takes 10-30 seconds.</span>
               </CardContent>
             </Card>
           )}
@@ -724,6 +726,14 @@ export default function TradeConfirm({ tradeHash }) {
                       ))}
                     </div>
                   )}
+                  <textarea
+                    value={evidenceNote}
+                    onChange={(e) => setEvidenceNote(e.target.value)}
+                    placeholder="Add a note for the admin (explain what happened)..."
+                    rows={2}
+                    maxLength={2000}
+                    className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  />
                   <div className="flex items-center gap-3">
                     <Button
                       variant="outline"
@@ -769,7 +779,7 @@ export default function TradeConfirm({ tradeHash }) {
                     <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
                   </span>
                   <span className="text-sm font-semibold text-amber-400">
-                    {isCashMeeting ? "Waiting for merchant to scan QR and confirm..." : "Waiting for merchant confirmation..."}
+                    Payment marked. Waiting for seller to confirm.
                   </span>
                 </div>
               )}

@@ -180,7 +180,7 @@ function getPaymentMethodsByType(methods) {
   if (!methods) return { bank, online, cash }
   methods.forEach(m => {
     const icon = paymentTypeIcons[m.type] || Globe
-    const item = { name: m.label || m.provider, type: m.type, icon }
+    const item = { name: m.label || m.provider, type: m.type, icon, location: m.location }
     if (m.type === "bank_transfer") bank.push(item)
     else if (m.type === "online_payment" || m.type === "mobile_payment") online.push(item)
     else if (m.type === "cash_meeting") cash.push(item)
@@ -516,13 +516,18 @@ export default function MerchantProfile({ username }) {
                     {cashMethods.length > 0 && (
                       <div>
                         <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">In-Person</p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
                           {cashMethods.map(m => (
-                            <span key={m.name} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-400">
-                              <m.icon weight="duotone" size={18} />
-                              {m.name}
-                              <MapPin weight="fill" size={14} />
-                            </span>
+                            <div key={m.name} className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
+                              <m.icon weight="duotone" size={18} className="text-emerald-400 shrink-0" />
+                              <span className="text-sm font-medium text-emerald-400">{m.name}</span>
+                              {m.location && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
+                                  <MapPin weight="fill" size={12} />
+                                  {m.location}
+                                </span>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </div>

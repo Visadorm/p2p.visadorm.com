@@ -52,8 +52,12 @@ export default function RecentTradesCarousel({ trades }) {
         {trades.map((trade, i) => (
           <div key={i} className="flex min-w-[180px] flex-col gap-2 rounded-xl border border-border/50 bg-card p-4 shrink-0">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">{trade.buyer}</span>
-              <CheckCircle weight="fill" size={16} className="text-emerald-500" />
+              <span className="text-sm font-semibold">{trade.counterparty || trade.buyer}</span>
+              <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
+                trade.role === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
+              }`}>
+                {trade.role === "buy" ? "Buy" : "Sell"}
+              </span>
             </div>
             <span className="font-mono text-base font-bold">${Number(trade.amount).toLocaleString()} USDC</span>
             <span className="text-sm text-muted-foreground">{trade.time}</span>

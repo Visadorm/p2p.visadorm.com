@@ -65,17 +65,21 @@ class DisputeService
     /**
      * Upload and attach evidence to an open dispute.
      */
-    public function submitEvidence(Dispute $dispute, UploadedFile $file, string $uploadedBy): Dispute
+    public function submitEvidence(Dispute $dispute, UploadedFile $file, string $uploadedBy, ?string $note = null): Dispute
     {
         $path = $file->store('disputes/' . $dispute->id, 'local');
 
         $evidence = $dispute->evidence ?? [];
-        $evidence[] = [
+        $entry = [
             'uploaded_by' => $uploadedBy,
             'file_path' => $path,
             'original_name' => $file->getClientOriginalName(),
             'uploaded_at' => now()->toISOString(),
         ];
+        if ($note) {
+            $entry['note'] = $note;
+        }
+        $evidence[] = $entry;
 
         $dispute->update(['evidence' => $evidence]);
 

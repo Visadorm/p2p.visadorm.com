@@ -99,11 +99,19 @@ export default function Verify({ tradeHash }) {
                   <Badge className={`text-sm px-3 py-1 ${statusConfig.color}`}>
                     {statusConfig.label}
                   </Badge>
-                  {isEscrowed && (
+                  {status === "completed" ? (
+                    <p className="text-sm text-emerald-400 font-medium">
+                      USDC has been released to the buyer
+                    </p>
+                  ) : status === "disputed" ? (
+                    <p className="text-sm text-red-400 font-medium">
+                      USDC is held in escrow pending dispute resolution
+                    </p>
+                  ) : isEscrowed ? (
                     <p className="text-sm text-emerald-400 font-medium">
                       USDC is locked in escrow smart contract
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </CardContent>
             </Card>

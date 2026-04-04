@@ -329,7 +329,7 @@ export default function TradeMeeting({ tradeHash }) {
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4">
               <ShieldCheck weight="fill" size={28} className="text-emerald-500 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-emerald-400">USDC Locked in Escrow</p>
+                <p className="text-sm font-semibold text-emerald-400">USDC is locked in escrow</p>
                 <p className="text-sm text-muted-foreground">
                   Funds are safely held until both parties confirm
                 </p>
@@ -352,6 +352,14 @@ export default function TradeMeeting({ tradeHash }) {
           {/* QR Code Card */}
           <NFTQRCode tradeHash={tradeHash} tokenId={tokenId} amountUsdc={trade?.amount_usdc} />
 
+          {/* Stake Info */}
+          {!isTerminal && Number(trade?.stake_amount) > 0 && (
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-3">
+              <span className="text-sm text-muted-foreground">Anti-spam stake</span>
+              <span className="font-mono text-sm font-semibold">${Number(trade.stake_amount).toLocaleString()} USDC</span>
+            </div>
+          )}
+
           {/* Completed Banner */}
           {tradeStatus === "completed" && (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-6 text-center">
@@ -359,6 +367,31 @@ export default function TradeMeeting({ tradeHash }) {
               <div>
                 <p className="text-lg font-semibold text-emerald-400">Trade Completed</p>
                 <p className="text-sm text-muted-foreground">USDC has been released to your wallet</p>
+                {Number(trade?.stake_amount) > 0 && (
+                  <p className="text-sm text-emerald-400 mt-1">${Number(trade.stake_amount).toLocaleString()} USDC stake refunded</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Cancelled Banner */}
+          {tradeStatus === "cancelled" && (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-5 py-6 text-center">
+              <Warning weight="fill" size={40} className="text-red-400" />
+              <div>
+                <p className="text-lg font-semibold text-red-400">Trade Cancelled</p>
+                <p className="text-sm text-muted-foreground">This trade has been cancelled</p>
+              </div>
+            </div>
+          )}
+
+          {/* Expired Banner */}
+          {tradeStatus === "expired" && (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-6 text-center">
+              <Warning weight="fill" size={40} className="text-amber-400" />
+              <div>
+                <p className="text-lg font-semibold text-amber-400">Trade Expired</p>
+                <p className="text-sm text-muted-foreground">This trade expired before completion</p>
               </div>
             </div>
           )}
@@ -465,7 +498,7 @@ export default function TradeMeeting({ tradeHash }) {
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
                     <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
                   </span>
-                  <span className="text-sm font-semibold text-amber-400">Waiting for merchant to confirm and release USDC...</span>
+                  <span className="text-sm font-semibold text-amber-400">Payment marked. Waiting for seller to confirm.</span>
                 </div>
               )}
               <div className="flex items-center justify-center gap-4">

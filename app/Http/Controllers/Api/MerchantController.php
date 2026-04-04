@@ -221,6 +221,7 @@ class MerchantController extends Controller
                         'type' => $pm->type?->value,
                         'provider' => $pm->provider,
                         'label' => $pm->label,
+                        'location' => $pm->location,
                     ]),
                     'trading_links' => $merchant->tradingLinks->map(fn ($tl) => [
                         'id' => $tl->id,
