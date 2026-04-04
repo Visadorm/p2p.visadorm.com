@@ -10,6 +10,15 @@ BRANCH="main"
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
 LOG_DIR="$PROJECT_DIR/storage/logs"
+TG_BOT="8725383408:AAFRWW7t1SopjZFIxwgNTq5rFu0Vj-wtpzw"
+TG_CHAT="6113315629"
+
+send_tg() {
+    curl -s -X POST "https://api.telegram.org/bot${TG_BOT}/sendMessage" \
+      --data-urlencode "chat_id=${TG_CHAT}" \
+      --data-urlencode "parse_mode=HTML" \
+      --data-urlencode "text=$1" > /dev/null 2>&1 || true
+}
 
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/auto-deploy.log"
@@ -46,6 +55,7 @@ if git diff HEAD@{1} --name-only 2>/dev/null | grep -q "composer.lock"; then
 fi
 
 MIGRATE_OUTPUT=$(php artisan migrate --force --no-interaction 2>&1)
+echo "$MIGRATE_OUTPUT"
 if echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
     MIGRATE_STATUS="Ran"
 else
@@ -84,17 +94,12 @@ DURATION=$((DEPLOY_END - DEPLOY_START))
 echo "=== Auto-deploy completed at $DEPLOY_END_FMT (${DURATION}s) ==="
 
 # Telegram notification
-TG_BOT="8725383408:AAFRWW7t1SopjZFIxwgNTq5rFu0Vj-wtpzw"
-TG_CHAT="6113315629"
 SERVER_HOST=$(hostname 2>/dev/null || echo "unknown")
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "unknown")
 COMMIT_MSG=$(git log -1 --pretty=format:'%s' 2>/dev/null)
 COMMIT_SHORT=$(git rev-parse --short HEAD 2>/dev/null)
 
-curl -s -X POST "https://api.telegram.org/bot${TG_BOT}/sendMessage" \
-  -d chat_id="$TG_CHAT" \
-  -d parse_mode="HTML" \
-  -d text="<b>Deploy Complete</b>
+MSG="<b>Deploy Complete</b>
 
 <b>Domain:</b> ${DOMAIN}
 <b>Server:</b> ${SERVER_HOST} (${SERVER_IP})
@@ -103,4 +108,6 @@ curl -s -X POST "https://api.telegram.org/bot${TG_BOT}/sendMessage" \
 <b>Files:</b> ${FILES_CHANGED} changed
 <b>Migration:</b> ${MIGRATE_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
-<b>Duration:</b> ${DURATION}s" > /dev/null 2>&1 || true
+<b>Duration:</b> ${DURATION}s"
+
+send_tg "$MSG"
