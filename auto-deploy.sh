@@ -111,3 +111,13 @@ MSG="<b>Deploy Complete</b>
 <b>Duration:</b> ${DURATION}s"
 
 send_tg "$MSG"
+
+# Check migration columns exist
+COL_CHECK=$(php artisan tinker --execute="
+echo 'reviewer_role:' . (Schema::hasColumn('reviews', 'reviewer_role') ? 'YES' : 'NO') . '|';
+echo 'full_name:' . (Schema::hasColumn('merchants', 'full_name') ? 'YES' : 'NO') . '|';
+echo 'business_name:' . (Schema::hasColumn('merchants', 'business_name') ? 'YES' : 'NO');
+" 2>/dev/null || echo "CHECK FAILED")
+
+send_tg "<b>Migration Column Check</b>
+${COL_CHECK}"
