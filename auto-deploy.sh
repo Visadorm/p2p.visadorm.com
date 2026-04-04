@@ -49,8 +49,9 @@ php artisan queue:restart
 chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
 
-# Purge Cloudflare cache (skip if token not set)
+# Purge Cloudflare cache
 CLOUDFLARE_API_TOKEN=$(grep '^CLOUDFLARE_API_TOKEN=' .env 2>/dev/null | cut -d'=' -f2 || true)
+CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-cfat_moNoQPL0lI4H6ITyw2ruADDXpEA3s2sj6eo1opwNa31e61ec}"
 if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
     curl -s -X POST "https://api.cloudflare.com/client/v4/zones/6281abc53c8094f3973eb93c956c49d5/purge_cache" \
       -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
