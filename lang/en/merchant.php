@@ -60,6 +60,8 @@ return [
 
     // Profile Fields
     'bio' => 'Bio',
+    'full_name' => 'Full Name',
+    'business_name' => 'Business Name',
     'country' => 'Country',
     'currency' => 'Currency',
     'timezone' => 'Timezone',

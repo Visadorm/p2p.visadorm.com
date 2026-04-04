@@ -32,6 +32,14 @@ class MerchantInfolist
                             ->placeholder('—')
                             ->columnSpanFull(),
 
+                        TextEntry::make('full_name')
+                            ->label(__('merchant.full_name'))
+                            ->placeholder('—'),
+
+                        TextEntry::make('business_name')
+                            ->label(__('merchant.business_name'))
+                            ->placeholder('—'),
+
                         TextEntry::make('rank.name')
                             ->label(__('merchant.rank')),
 

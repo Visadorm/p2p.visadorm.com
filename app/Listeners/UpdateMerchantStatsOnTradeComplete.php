@@ -64,12 +64,20 @@ class UpdateMerchantStatsOnTradeComplete implements ShouldQueue
             $reliabilityScore = min(10, round(($completionRate / 10) - ($disputeRate / 5), 1));
             $reliabilityScore = max(0, $reliabilityScore);
 
+            // Calculate average response time (minutes from trade creation to completion)
+            $avgResponse = $merchant->trades()
+                ->where('status', TradeStatus::Completed)
+                ->whereNotNull('completed_at')
+                ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at)) as avg_minutes')
+                ->value('avg_minutes');
+
             $merchant->update([
                 'total_trades' => $totalTrades,
                 'total_volume' => $totalVolume,
                 'completion_rate' => $completionRate,
                 'dispute_rate' => $disputeRate,
                 'reliability_score' => $reliabilityScore,
+                'avg_response_minutes' => $avgResponse ? round((float) $avgResponse, 1) : null,
             ]);
         });
 

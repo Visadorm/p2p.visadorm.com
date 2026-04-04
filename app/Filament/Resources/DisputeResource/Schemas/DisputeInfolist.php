@@ -98,6 +98,10 @@ class DisputeInfolist
                                     ->formatStateUsing(fn () => 'View / Download')
                                     ->url(fn ($state) => $state ? route('admin.dispute.download-evidence', ['path' => $state]) : null)
                                     ->openUrlInNewTab(),
+                                TextEntry::make('note')
+                                    ->label('Note')
+                                    ->placeholder('—')
+                                    ->columnSpanFull(),
                             ])
                             ->columns(4)
                             ->placeholder('No evidence uploaded'),

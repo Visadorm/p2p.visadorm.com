@@ -34,6 +34,14 @@ class MerchantForm
                         TextInput::make('bio')
                             ->label(__('merchant.bio'))
                             ->maxLength(500),
+
+                        TextInput::make('full_name')
+                            ->label(__('merchant.full_name'))
+                            ->maxLength(100),
+
+                        TextInput::make('business_name')
+                            ->label(__('merchant.business_name'))
+                            ->maxLength(100),
                     ])
                     ->columns(2),
 

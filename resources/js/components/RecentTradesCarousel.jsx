@@ -49,20 +49,26 @@ export default function RecentTradesCarousel({ trades }) {
         className="flex gap-3 overflow-x-auto pb-2 max-w-full"
         style={{ scrollbarWidth: "none", scrollBehavior: "auto" }}
       >
-        {trades.map((trade, i) => (
-          <div key={i} className="flex min-w-[180px] flex-col gap-2 rounded-xl border border-border/50 bg-card p-4 shrink-0">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">{trade.counterparty || trade.buyer}</span>
-              <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
-                trade.role === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
-              }`}>
-                {trade.role === "buy" ? "Buy" : "Sell"}
-              </span>
+        {trades.map((trade, i) => {
+          const isCash = ["cash_meeting", "cash meeting"].includes((trade.payment_method || "").toLowerCase())
+          return (
+            <div key={i} className="flex min-w-[200px] flex-col gap-2 rounded-xl border border-border/50 bg-card p-4 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">{trade.counterparty || trade.buyer}</span>
+                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
+                  trade.role === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
+                }`}>
+                  {trade.role === "buy" ? "Buy" : "Sell"}
+                </span>
+              </div>
+              <span className="font-mono text-base font-bold">${Number(trade.amount).toLocaleString()} USDC</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">{trade.payment_method || "Transfer"}</span>
+                <span className="text-xs text-muted-foreground">{trade.time}</span>
+              </div>
             </div>
-            <span className="font-mono text-base font-bold">${Number(trade.amount).toLocaleString()} USDC</span>
-            <span className="text-sm text-muted-foreground">{trade.time}</span>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

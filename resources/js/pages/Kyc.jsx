@@ -288,38 +288,31 @@ export default function Kyc() {
         </p>
       </div>
 
-      {/* Personal & Business Name */}
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base">Personal Information</CardTitle>
-          <p className="text-sm text-muted-foreground">Your legal name will be shown to verified trade partners only</p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Full Legal Name</Label>
-              <Input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Emmanuel Fagnon"
-                maxLength={100}
-              />
+      {/* Personal & Business Name (admin-managed, read-only for users) */}
+      {(fullName || businessName) && (
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-base">Verified Identity</CardTitle>
+            <p className="text-sm text-muted-foreground">Your legal name is managed by the admin after KYC verification</p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {fullName && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Full Name</span>
+                  <span className="text-sm font-semibold">{fullName}</span>
+                </div>
+              )}
+              {businessName && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Business Name</span>
+                  <span className="text-sm font-semibold">{businessName}</span>
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label>Business Name (optional)</Label>
-              <Input
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="e.g. ABC Inc"
-                maxLength={100}
-              />
-            </div>
-            <Button onClick={handleSaveName} disabled={savingName || !fullName.trim()} className="w-full">
-              {savingName ? "Saving..." : "Save"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Document Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -69,8 +69,6 @@ class MerchantController extends Controller
 
         $validated = $request->validate([
             'username' => ['sometimes', 'string', 'max:50', Rule::unique('merchants')->ignore($merchant->id)],
-            'full_name' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'business_name' => ['sometimes', 'nullable', 'string', 'max:100'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:500'],
@@ -183,7 +181,7 @@ class MerchantController extends Controller
             ->where('status', TradeStatus::Completed)
             ->orderByDesc('completed_at')
             ->limit(10)
-            ->get(['merchant_id', 'buyer_wallet', 'amount_usdc', 'completed_at']);
+            ->get(['merchant_id', 'buyer_wallet', 'amount_usdc', 'payment_method', 'completed_at']);
 
         return response()->json([
             'data' => [
@@ -245,6 +243,7 @@ class MerchantController extends Controller
                             : 'Seller',
                         'role' => $t->merchant_id === $merchant->id ? 'sell' : 'buy',
                         'amount' => $t->amount_usdc,
+                        'payment_method' => $t->payment_method,
                         'time' => $t->completed_at?->diffForHumans(),
                     ]),
                 ],
