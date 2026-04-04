@@ -51,12 +51,12 @@ chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
 
 echo "[9/9] Purging Cloudflare cache..."
-CLOUDFLARE_API_TOKEN=$(grep -oP 'CLOUDFLARE_API_TOKEN=\K.*' .env 2>/dev/null || true)
+CLOUDFLARE_API_TOKEN=$(grep '^CLOUDFLARE_API_TOKEN=' .env 2>/dev/null | cut -d'=' -f2 || true)
 if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
     curl -s -X POST "https://api.cloudflare.com/client/v4/zones/6281abc53c8094f3973eb93c956c49d5/purge_cache" \
       -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
       -H "Content-Type: application/json" \
-      --data '{"purge_everything":true}' > /dev/null
+      --data '{"purge_everything":true}' > /dev/null 2>&1 || true
     echo "       Cloudflare cache purged"
 else
     echo "       CLOUDFLARE_API_TOKEN not set, skipping"
