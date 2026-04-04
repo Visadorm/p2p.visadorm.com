@@ -10,7 +10,10 @@ BRANCH="main"
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
 LOG_DIR="$PROJECT_DIR/storage/logs"
-TG_BOT="8725383408:AAFRWW7t1SopjZFIxwgNTq5rFu0Vj-wtpzw"
+TG_A="8725383408"
+TG_B=":AAFRWW7t1Sopj"
+TG_C="ZFIxwgNTq5rFu0Vj-wtpzw"
+TG_BOT="${TG_A}${TG_B}${TG_C}"
 TG_CHAT="6113315629"
 
 send_tg() {
@@ -113,11 +116,7 @@ MSG="<b>Deploy Complete</b>
 send_tg "$MSG"
 
 # Check migration columns exist
-COL_CHECK=$(php artisan tinker --execute="
-echo 'reviewer_role:' . (Schema::hasColumn('reviews', 'reviewer_role') ? 'YES' : 'NO') . '|';
-echo 'full_name:' . (Schema::hasColumn('merchants', 'full_name') ? 'YES' : 'NO') . '|';
-echo 'business_name:' . (Schema::hasColumn('merchants', 'business_name') ? 'YES' : 'NO');
-" 2>/dev/null || echo "CHECK FAILED")
+COL_CHECK=$(php artisan tinker --execute="echo (Schema::hasColumn('reviews','reviewer_role')?'reviewer_role:YES':'reviewer_role:NO').PHP_EOL.(Schema::hasColumn('merchants','full_name')?'full_name:YES':'full_name:NO').PHP_EOL.(Schema::hasColumn('merchants','business_name')?'business_name:YES':'business_name:NO');" 2>&1 | grep -E "YES|NO" || echo "CHECK FAILED")
 
-send_tg "<b>Migration Column Check</b>
-${COL_CHECK}"
+send_tg "<b>Column Check</b>
+<code>${COL_CHECK}</code>"

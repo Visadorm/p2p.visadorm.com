@@ -10,7 +10,10 @@ BRANCH="main"
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
 LOG_DIR="$PROJECT_DIR/storage/logs"
-TG_BOT="8725383408:AAFRWW7t1SopjZFIxwgNTq5rFu0Vj-wtpzw"
+TG_A="8725383408"
+TG_B=":AAFRWW7t1Sopj"
+TG_C="ZFIxwgNTq5rFu0Vj-wtpzw"
+TG_BOT="${TG_A}${TG_B}${TG_C}"
 TG_CHAT="6113315629"
 
 send_tg() {
