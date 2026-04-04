@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\KycDocumentType;
 use App\Enums\KycStatus;
 use App\Models\Merchant;
+use App\Services\EscrowService;
 use App\Settings\TradeSettings;
 
 class MerchantBadgeService
@@ -43,7 +44,14 @@ class MerchantBadgeService
      */
     private function hasLiquidity(Merchant $merchant, TradeSettings $settings): bool
     {
-        return (float) $merchant->total_volume > $settings->liquidity_badge_threshold;
+        if ((float) $merchant->total_volume > $settings->liquidity_badge_threshold) {
+            return true;
+        }
+
+        // Also grant if merchant has funds in escrow
+        $escrowBalance = rescue(fn () => app(EscrowService::class)->getMerchantTotalEscrow($merchant), 0);
+
+        return (float) $escrowBalance > 0;
     }
 
     /**

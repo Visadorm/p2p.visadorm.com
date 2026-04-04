@@ -21,6 +21,8 @@ import {
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -143,13 +145,35 @@ function KycSkeleton() {
 }
 
 export default function Kyc() {
-  const { isAuthenticated, merchant } = useWallet()
+  const { isAuthenticated } = useWallet()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [uploadingType, setUploadingType] = useState(null)
+  const [fullName, setFullName] = useState("")
+  const [businessName, setBusinessName] = useState("")
+  const [savingName, setSavingName] = useState(false)
   const fileInputRefs = useRef({})
 
+  const fetchProfile = async () => {
+    try {
+      const res = await api.getDashboard()
+      setFullName(res.data?.merchant?.full_name || "")
+      setBusinessName(res.data?.merchant?.business_name || "")
+    } catch {}
+  }
+
+  const handleSaveName = async () => {
+    setSavingName(true)
+    try {
+      await api.updateProfile({ full_name: fullName, business_name: businessName || undefined })
+      toast.success("Name saved")
+    } catch (err) {
+      toast.error(err.message || "Failed to save")
+    } finally {
+      setSavingName(false)
+    }
+  }
 
   const fetchDocuments = async () => {
     if (!isAuthenticated) return
@@ -169,6 +193,7 @@ export default function Kyc() {
 
   useEffect(() => {
     fetchDocuments()
+    fetchProfile()
   }, [isAuthenticated])
 
   // Merge API documents with the expected document types
@@ -222,8 +247,8 @@ export default function Kyc() {
     return BADGES.map((badge) => {
       let active = false
       if (badge.key === "verified" && approvedTypes.includes("id_document")) active = true
-      if (badge.key === "fast" && merchant?.is_fast_responder) active = true
-      if (badge.key === "liquidity" && merchant?.has_liquidity) active = true
+      if (badge.key === "fast" && approvedTypes.includes("bank_statement")) active = true
+      if (badge.key === "liquidity" && approvedTypes.includes("proof_of_residency")) active = true
       if (badge.key === "business" && approvedTypes.includes("business_document")) active = true
       return { ...badge, active }
     })
@@ -262,6 +287,39 @@ export default function Kyc() {
           Submit your documents to earn verification badges and unlock higher trading limits
         </p>
       </div>
+
+      {/* Personal & Business Name */}
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base">Personal Information</CardTitle>
+          <p className="text-sm text-muted-foreground">Your legal name will be shown to verified trade partners only</p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Full Legal Name</Label>
+              <Input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Emmanuel Fagnon"
+                maxLength={100}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Business Name (optional)</Label>
+              <Input
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="e.g. ABC Inc"
+                maxLength={100}
+              />
+            </div>
+            <Button onClick={handleSaveName} disabled={savingName || !fullName.trim()} className="w-full">
+              {savingName ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Document Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -15,6 +15,9 @@ LOG_FILE="$LOG_DIR/auto-deploy.log"
 
 cd "$PROJECT_DIR"
 
+# Load Cloudflare token from .env if available
+CLOUDFLARE_API_TOKEN=$(grep -oP 'CLOUDFLARE_API_TOKEN=\K.*' .env 2>/dev/null || true)
+
 git fetch origin "$BRANCH" --quiet
 
 LOCAL=$(git rev-parse HEAD)
@@ -48,5 +51,14 @@ php artisan queue:restart
 
 chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
+
+# Purge Cloudflare cache
+if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+    curl -s -X POST "https://api.cloudflare.com/client/v4/zones/6281abc53c8094f3973eb93c956c49d5/purge_cache" \
+      -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      --data '{"purge_everything":true}' > /dev/null
+    echo "Cloudflare cache purged"
+fi
 
 echo "=== Auto-deploy completed at $(date '+%Y-%m-%d %H:%M:%S') ==="

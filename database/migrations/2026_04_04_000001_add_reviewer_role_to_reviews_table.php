@@ -8,13 +8,28 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('reviews', function (Blueprint $table) {
-            $table->string('reviewer_role', 10)->default('buyer')->after('reviewer_wallet');
+        if (! Schema::hasColumn('reviews', 'reviewer_role')) {
+            Schema::table('reviews', function (Blueprint $table) {
+                $table->string('reviewer_role', 10)->default('buyer')->after('reviewer_wallet');
+            });
+        }
 
-            // Drop old unique on trade_id, add composite unique
-            $table->dropUnique(['trade_id']);
-            $table->unique(['trade_id', 'reviewer_role']);
-        });
+        // Swap unique constraint: trade_id → (trade_id, reviewer_role)
+        try {
+            Schema::table('reviews', function (Blueprint $table) {
+                $table->dropUnique(['trade_id']);
+            });
+        } catch (\Throwable) {
+            // Index may not exist (fresh DB or already dropped)
+        }
+
+        try {
+            Schema::table('reviews', function (Blueprint $table) {
+                $table->unique(['trade_id', 'reviewer_role']);
+            });
+        } catch (\Throwable) {
+            // Composite index may already exist
+        }
     }
 
     public function down(): void

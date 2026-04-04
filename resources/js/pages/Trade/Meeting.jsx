@@ -236,6 +236,8 @@ export default function TradeMeeting({ tradeHash }) {
   const amountUsdc = Number(trade?.amount_usdc) || 0
   const amountFiat = Number(trade?.amount_fiat) || 0
   const currencyCode = trade?.currency_code || ""
+  const merchantName = trade?.merchant?.username || "Merchant"
+  const paymentMethodName = trade?.payment_method || ""
   const meetingLocation = trade?.meeting_location || "Location not set"
   const tokenId = trade?.nft_token_id || "N/A"
   const escrowAmount = amountUsdc
@@ -334,6 +336,34 @@ export default function TradeMeeting({ tradeHash }) {
                     )}
                   </div>
                 </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Payment Method</span>
+                  <span className="text-sm font-medium">{paymentMethodName}</span>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Merchant</span>
+                  <span className="text-sm font-semibold">{merchantName}</span>
+                </div>
+                {trade?.merchant_verified_name && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Verified Name</span>
+                      <span className="text-sm font-semibold">{trade.merchant_verified_name}</span>
+                    </div>
+                  </>
+                )}
+                {trade?.merchant_business_name && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Business</span>
+                      <span className="text-sm font-semibold">{trade.merchant_business_name}</span>
+                    </div>
+                  </>
+                )}
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Meeting Location</span>

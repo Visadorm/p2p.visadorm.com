@@ -56,6 +56,9 @@ class EscrowController extends Controller
             return response()->json(['message' => __('p2p.server_error')], 503);
         }
 
+        // Recalculate badges (liquidity badge depends on escrow balance)
+        rescue(fn () => app(\App\Services\MerchantBadgeService::class)->updateBadges($merchant));
+
         return response()->json([
             'data'    => ['tx_hash' => $txHash],
             'message' => __('p2p.escrow_deposit_submitted'),

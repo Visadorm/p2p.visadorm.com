@@ -258,7 +258,7 @@ class TradeController extends Controller
     public function status(Request $request, string $tradeHash): JsonResponse
     {
         $trade = Trade::where('trade_hash', $tradeHash)
-            ->with(['merchant:id,username,wallet_address,rank_id', 'merchant.rank', 'tradingLink', 'review', 'merchantReview', 'dispute'])
+            ->with(['merchant:id,username,wallet_address,rank_id,full_name,business_name,kyc_status', 'merchant.rank', 'tradingLink', 'review', 'merchantReview', 'dispute'])
             ->first();
 
         if (! $trade) {
@@ -289,6 +289,18 @@ class TradeController extends Controller
 
         $data['payment_method_details'] = $paymentMethod?->details;
         $data['payment_method_label'] = $paymentMethod?->label;
+
+        // Show masked merchant identity for verified merchants
+        $m = $trade->merchant;
+        if ($m->kyc_status?->value === 'approved' && $m->full_name) {
+            $parts = explode(' ', $m->full_name, 2);
+            $first = $parts[0] ?? '';
+            $last = isset($parts[1]) ? strtoupper(substr($parts[1], 0, 1)) . str_repeat('*', max(0, strlen($parts[1]) - 1)) : '';
+            $data['merchant_verified_name'] = trim($first . ' ' . $last);
+            if ($m->business_name) {
+                $data['merchant_business_name'] = $m->business_name;
+            }
+        }
 
         return response()->json([
             'data' => $data,

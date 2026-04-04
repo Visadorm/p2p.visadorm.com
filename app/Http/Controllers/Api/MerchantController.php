@@ -69,6 +69,8 @@ class MerchantController extends Controller
 
         $validated = $request->validate([
             'username' => ['sometimes', 'string', 'max:50', Rule::unique('merchants')->ignore($merchant->id)],
+            'full_name' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'business_name' => ['sometimes', 'nullable', 'string', 'max:100'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:500'],

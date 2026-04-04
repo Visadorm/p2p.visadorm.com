@@ -32,28 +32,33 @@ class UpdateMerchantStatsOnTradeComplete implements ShouldQueue
             ", [$merchant->id, Carbon::today()->toDateString(), (float) $trade->amount_usdc, Carbon::now()]);
 
             // Recalculate merchant aggregate stats — count BOTH buy and sell trades
+            // Exclude cancelled trades from completion rate (cancel is voluntary, not a failure)
             $stats = $merchant->allTrades()->selectRaw("
                 COUNT(*) as total_trades,
+                SUM(CASE WHEN status NOT IN (?, ?) THEN 1 ELSE 0 END) as countable_trades,
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_trades,
                 SUM(CASE WHEN status = ? THEN amount_usdc ELSE 0 END) as total_volume,
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as disputed_trades
             ", [
+                TradeStatus::Cancelled->value,
+                TradeStatus::Pending->value,
                 TradeStatus::Completed->value,
                 TradeStatus::Completed->value,
                 TradeStatus::Disputed->value,
             ])->first();
 
             $totalTrades = (int) $stats->total_trades;
+            $countableTrades = (int) $stats->countable_trades;
             $completedTrades = (int) $stats->completed_trades;
             $totalVolume = (float) $stats->total_volume;
             $disputedTrades = (int) $stats->disputed_trades;
 
-            $completionRate = $totalTrades > 0
-                ? round(($completedTrades / $totalTrades) * 100, 2)
+            $completionRate = $countableTrades > 0
+                ? round(($completedTrades / $countableTrades) * 100, 2)
                 : 0;
 
-            $disputeRate = $totalTrades > 0
-                ? round(($disputedTrades / $totalTrades) * 100, 2)
+            $disputeRate = $countableTrades > 0
+                ? round(($disputedTrades / $countableTrades) * 100, 2)
                 : 0;
 
             $reliabilityScore = min(10, round(($completionRate / 10) - ($disputeRate / 5), 1));
@@ -76,24 +81,28 @@ class UpdateMerchantStatsOnTradeComplete implements ShouldQueue
 
                 $stats = $bm->allTrades()->selectRaw("
                     COUNT(*) as total_trades,
+                    SUM(CASE WHEN status NOT IN (?, ?) THEN 1 ELSE 0 END) as countable_trades,
                     SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_trades,
                     SUM(CASE WHEN status = ? THEN amount_usdc ELSE 0 END) as total_volume,
                     SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as disputed_trades
                 ", [
+                    TradeStatus::Cancelled->value,
+                    TradeStatus::Pending->value,
                     TradeStatus::Completed->value,
                     TradeStatus::Completed->value,
                     TradeStatus::Disputed->value,
                 ])->first();
 
                 $totalTrades = (int) $stats->total_trades;
+                $countableTrades = (int) $stats->countable_trades;
                 $completedTrades = (int) $stats->completed_trades;
                 $totalVolume = (float) $stats->total_volume;
                 $disputedTrades = (int) $stats->disputed_trades;
 
-                $completionRate = $totalTrades > 0
-                    ? round(($completedTrades / $totalTrades) * 100, 2) : 0;
-                $disputeRate = $totalTrades > 0
-                    ? round(($disputedTrades / $totalTrades) * 100, 2) : 0;
+                $completionRate = $countableTrades > 0
+                    ? round(($completedTrades / $countableTrades) * 100, 2) : 0;
+                $disputeRate = $countableTrades > 0
+                    ? round(($disputedTrades / $countableTrades) * 100, 2) : 0;
                 $reliabilityScore = max(0, min(10, round(($completionRate / 10) - ($disputeRate / 5), 1)));
 
                 $bm->update([
@@ -104,6 +113,13 @@ class UpdateMerchantStatsOnTradeComplete implements ShouldQueue
                     'reliability_score' => $reliabilityScore,
                 ]);
             });
+        }
+
+        // Recalculate badges for both parties (liquidity, fast responder, etc.)
+        $badgeService = app(\App\Services\MerchantBadgeService::class);
+        rescue(fn () => $badgeService->updateBadges(Merchant::find($trade->merchant_id)));
+        if ($buyerMerchant ?? null) {
+            rescue(fn () => $badgeService->updateBadges($buyerMerchant));
         }
 
         Cache::forget('platform_stats');

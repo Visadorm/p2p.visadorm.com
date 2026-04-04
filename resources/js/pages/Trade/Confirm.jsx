@@ -410,6 +410,24 @@ export default function TradeConfirm({ tradeHash }) {
                   <span className="text-sm text-muted-foreground">Merchant</span>
                   <span className="text-sm font-semibold">{merchantName}</span>
                 </div>
+                {trade?.merchant_verified_name && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Verified Name</span>
+                      <span className="text-sm font-semibold">{trade.merchant_verified_name}</span>
+                    </div>
+                  </>
+                )}
+                {trade?.merchant_business_name && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Business</span>
+                      <span className="text-sm font-semibold">{trade.merchant_business_name}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

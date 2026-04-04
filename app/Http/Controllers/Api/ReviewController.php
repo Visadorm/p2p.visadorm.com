@@ -75,15 +75,21 @@ class ReviewController extends Controller
             $reviewedMerchantId = $buyerMerchant->id;
         }
 
-        $review = Review::create([
-            'trade_id' => $trade->id,
-            'merchant_id' => $reviewedMerchantId,
-            'reviewer_wallet' => $userWallet,
-            'reviewer_role' => $reviewerRole,
-            'rating' => $validated['rating'],
-            'comment' => $validated['comment'] ?? null,
-            'created_at' => now(),
-        ]);
+        try {
+            $review = Review::create([
+                'trade_id' => $trade->id,
+                'merchant_id' => $reviewedMerchantId,
+                'reviewer_wallet' => $userWallet,
+                'reviewer_role' => $reviewerRole,
+                'rating' => $validated['rating'],
+                'comment' => $validated['comment'] ?? null,
+                'created_at' => now(),
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            return response()->json([
+                'message' => __('p2p.review_already_exists'),
+            ], 422);
+        }
 
         return response()->json([
             'data' => $review,
