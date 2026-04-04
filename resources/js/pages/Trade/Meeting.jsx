@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { Link, router } from "@inertiajs/react"
 import {
@@ -10,6 +10,7 @@ import {
   Info,
   Warning,
   Star,
+  UploadSimple,
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -48,6 +49,11 @@ export default function TradeMeeting({ tradeHash }) {
   const [showDisputeForm, setShowDisputeForm] = useState(false)
   const [disputeReason, setDisputeReason] = useState("")
   const [disputing, setDisputing] = useState(false)
+
+  // Evidence state
+  const [uploadingEvidence, setUploadingEvidence] = useState(false)
+  const [evidenceNote, setEvidenceNote] = useState("")
+  const evidenceInputRef = useRef(null)
 
   // Review state
   const [reviewRating, setReviewRating] = useState(0)
@@ -138,6 +144,22 @@ export default function TradeMeeting({ tradeHash }) {
       toast.error(err.message || "Failed to open dispute")
     } finally {
       setDisputing(false)
+    }
+  }
+
+  const handleUploadEvidence = async (file) => {
+    if (!file || !trade?.dispute?.id) return
+    setUploadingEvidence(true)
+    try {
+      await api.uploadDisputeEvidence(trade.dispute.id, file, evidenceNote.trim() || undefined)
+      toast.success("Evidence uploaded")
+      setEvidenceNote("")
+      await fetchTrade()
+    } catch (err) {
+      toast.error(err.message || "Failed to upload evidence")
+    } finally {
+      setUploadingEvidence(false)
+      if (evidenceInputRef.current) evidenceInputRef.current.value = ""
     }
   }
 
@@ -394,6 +416,63 @@ export default function TradeMeeting({ tradeHash }) {
                 <p className="text-sm text-muted-foreground">This trade expired before completion</p>
               </div>
             </div>
+          )}
+
+          {/* Dispute Evidence Upload */}
+          {tradeStatus === "disputed" && trade?.dispute && (
+            <Card className="border-amber-500/20 bg-amber-500/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base text-amber-400">
+                  <Warning weight="fill" size={20} />
+                  Trade Under Dispute
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    USDC is held in escrow pending dispute resolution. Upload evidence to support your case.
+                  </p>
+                  {trade.dispute.evidence && trade.dispute.evidence.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Submitted Evidence ({trade.dispute.evidence.length})</p>
+                      {trade.dispute.evidence.map((e, i) => (
+                        <div key={i} className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2">
+                          <span className="text-sm truncate">{e.original_name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0 ml-2">{e.uploaded_at ? new Date(e.uploaded_at).toLocaleDateString() : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <textarea
+                    value={evidenceNote}
+                    onChange={(e) => setEvidenceNote(e.target.value)}
+                    placeholder="Add a note for the admin (explain what happened)..."
+                    rows={2}
+                    maxLength={2000}
+                    className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  />
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      disabled={uploadingEvidence}
+                      onClick={() => evidenceInputRef.current?.click()}
+                    >
+                      <UploadSimple weight="bold" size={16} />
+                      {uploadingEvidence ? "Uploading..." : "Upload Evidence"}
+                    </Button>
+                    <input
+                      ref={evidenceInputRef}
+                      type="file"
+                      accept="image/*,.pdf,.mp4,.webm"
+                      className="hidden"
+                      onChange={(e) => e.target.files?.[0] && handleUploadEvidence(e.target.files[0])}
+                    />
+                    <p className="text-xs text-muted-foreground">JPG, PNG, PDF, MP4 — Max 10MB</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Review Form — shows after trade completes */}
