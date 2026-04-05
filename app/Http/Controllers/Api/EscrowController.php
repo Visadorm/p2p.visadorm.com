@@ -36,11 +36,11 @@ class EscrowController extends Controller
             }
 
             // Check wallet USDC balance before attempting deposit
-            $balance = $this->blockchain->getUsdcBalance($merchant->wallet_address);
-            if (bccomp($balance, $rawAmount) < 0) {
-                $humanBalance = bcdiv($balance, '1000000', 2);
+            // getUsdcBalance returns human-readable (e.g. "50000.000000")
+            $humanBalance = $this->blockchain->getUsdcBalance($merchant->wallet_address);
+            if (bccomp($humanBalance, (string) $validated['amount'], 6) < 0) {
                 return response()->json([
-                    'message' => __('p2p.insufficient_usdc_balance', ['balance' => $humanBalance]),
+                    'message' => __('p2p.insufficient_usdc_balance', ['balance' => bcadd($humanBalance, '0', 2)]),
                 ], 422);
             }
 
