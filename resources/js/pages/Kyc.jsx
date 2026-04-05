@@ -152,7 +152,6 @@ export default function Kyc() {
   const [uploadingType, setUploadingType] = useState(null)
   const [fullName, setFullName] = useState("")
   const [businessName, setBusinessName] = useState("")
-  const [savingName, setSavingName] = useState(false)
   const fileInputRefs = useRef({})
 
   const fetchProfile = async () => {
@@ -161,18 +160,6 @@ export default function Kyc() {
       setFullName(res.data?.merchant?.full_name || "")
       setBusinessName(res.data?.merchant?.business_name || "")
     } catch {}
-  }
-
-  const handleSaveName = async () => {
-    setSavingName(true)
-    try {
-      await api.updateProfile({ full_name: fullName, business_name: businessName || undefined })
-      toast.success("Name saved")
-    } catch (err) {
-      toast.error(err.message || "Failed to save")
-    } finally {
-      setSavingName(false)
-    }
   }
 
   const fetchDocuments = async () => {
