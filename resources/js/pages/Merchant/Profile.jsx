@@ -575,9 +575,16 @@ export default function MerchantProfile({ username }) {
                       <div key={i} className="rounded-xl border border-border/50 bg-muted/10 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="font-mono text-sm font-semibold">#{trade.trade_hash ? trade.trade_hash.slice(2, 8) : "---"}</span>
-                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium bg-emerald-500/15 text-emerald-400">
-                            Confirmed
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              trade.role === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
+                            }`}>
+                              {trade.role === "buy" ? "Bought" : "Sold"}
+                            </span>
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/15 text-emerald-400">
+                              Confirmed
+                            </span>
+                          </div>
                         </div>
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
