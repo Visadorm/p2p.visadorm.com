@@ -561,8 +561,72 @@ export default function MerchantProfile({ username }) {
               </Card>
             )}
 
-            {/* Recent Trades Carousel */}
-            <RecentTradesCarousel trades={recentTrades} />
+            {/* Recent Trades Carousel (non-cash) */}
+            <RecentTradesCarousel trades={recentTrades.filter(t => !["cash_meeting", "cash meeting"].includes((t.payment_method || "").toLowerCase()))} />
+
+            {/* Cash Meeting Trades */}
+            {recentTrades.filter(t => ["cash_meeting", "cash meeting"].includes((t.payment_method || "").toLowerCase())).length > 0 && (
+              <Card className="border-border/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Handshake weight="duotone" className="size-5 text-emerald-400" />
+                    Cash Meeting Trades
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {recentTrades.filter(t => ["cash_meeting", "cash meeting"].includes((t.payment_method || "").toLowerCase())).map((trade, i) => (
+                      <div key={i} className="rounded-xl border border-border/50 bg-muted/10 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-sm font-semibold">#{trade.trade_hash ? trade.trade_hash.slice(2, 8) : "---"}</span>
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium bg-emerald-500/15 text-emerald-400">
+                            Confirmed
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Buyer</span>
+                            <span className="font-mono">{trade.counterparty}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Amount</span>
+                            <span className="font-semibold">${Number(trade.amount).toLocaleString()} USDC</span>
+                          </div>
+                          {trade.meeting_location && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Location</span>
+                              <span>{trade.meeting_location}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {trade.nft_token_id && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 gap-1.5 text-sm"
+                              onClick={() => window.open(`https://sepolia.basescan.org/token/0xA31aaDAef8ED85ea73b4665291b3c4E7ED5F6bb6?a=${trade.nft_token_id}`, '_blank')}
+                            >
+                              <QrCode size={14} /> Verify NFT
+                            </Button>
+                          )}
+                          {trade.trade_hash && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-sm"
+                              onClick={() => window.open(`/verify/${trade.trade_hash}`, '_blank')}
+                            >
+                              View Proof
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Reviews */}
             {(reviews.length > 0 || merchant.review_count > 0) && (
