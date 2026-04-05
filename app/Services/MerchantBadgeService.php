@@ -44,9 +44,16 @@ class MerchantBadgeService
      */
     private function hasLiquidity(Merchant $merchant, TradeSettings $settings): bool
     {
-        $escrowBalance = rescue(fn () => app(EscrowService::class)->getMerchantTotalEscrow($merchant), 0);
+        try {
+            $blockchain = app(\App\Services\BlockchainService::class);
+            $rawBalance = $blockchain->getMerchantEscrowBalance($merchant->wallet_address);
+            $decimal = $blockchain->hexToDecimal($rawBalance);
+            $balance = (float) $blockchain->usdcToHuman($decimal);
 
-        return (float) $escrowBalance > 0;
+            return $balance > 0;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
