@@ -55,6 +55,7 @@ class MerchantController extends Controller
                 'open_disputes_count' => $openDisputes,
                 'escrow_balance' => $escrowBalance,
                 'locked_balance' => $lockedBalance,
+                'sms_enabled' => app(\App\Settings\NotificationSettings::class)->sms_notifications_enabled,
             ],
             'message' => __('p2p.dashboard_loaded'),
         ]);

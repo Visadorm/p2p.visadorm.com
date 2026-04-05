@@ -74,12 +74,15 @@ export default function Settings() {
   const [phone, setPhone] = useState("")
   const [notifyEmail, setNotifyEmail] = useState(true)
   const [notifySms, setNotifySms] = useState(false)
+  const [smsEnabled, setSmsEnabled] = useState(false)
   const [tradeTimerMinutes, setTradeTimerMinutes] = useState("30")
 
 
   useEffect(() => {
     if (!isAuthenticated) return
-
+    api.getDashboard().then(res => {
+      setSmsEnabled(res.data?.sms_enabled === true)
+    }).catch(() => {})
     setLoading(false)
   }, [isAuthenticated])
 
@@ -225,16 +228,18 @@ export default function Settings() {
               />
               <p className="text-sm text-muted-foreground">Used for trade notifications only, not for login</p>
             </div>
-            <div className="space-y-2">
-              <Label>Phone <span className="text-muted-foreground">(optional — for SMS alerts)</span></Label>
-              <Input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 809 555 0100"
-              />
-              <p className="text-sm text-muted-foreground">Used for SMS trade alerts when enabled</p>
-            </div>
+            {smsEnabled && (
+              <div className="space-y-2">
+                <Label>Phone <span className="text-muted-foreground">(optional — for SMS alerts)</span></Label>
+                <Input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 809 555 0100"
+                />
+                <p className="text-sm text-muted-foreground">Used for SMS trade alerts when enabled</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -261,14 +266,18 @@ export default function Settings() {
               </Label>
               <Switch checked={notifyEmail} onCheckedChange={setNotifyEmail} />
             </div>
-            <Separator className="opacity-30" />
-            <div className="flex items-center justify-between">
-              <Label className="flex-1">
-                <span>SMS notifications</span>
-                <p className="text-sm text-muted-foreground font-normal">Receive trade alerts via SMS (requires phone number)</p>
-              </Label>
-              <Switch checked={notifySms} onCheckedChange={setNotifySms} />
-            </div>
+            {smsEnabled && (
+              <>
+                <Separator className="opacity-30" />
+                <div className="flex items-center justify-between">
+                  <Label className="flex-1">
+                    <span>SMS notifications</span>
+                    <p className="text-sm text-muted-foreground font-normal">Receive trade alerts via SMS (requires phone number)</p>
+                  </Label>
+                  <Switch checked={notifySms} onCheckedChange={setNotifySms} />
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
