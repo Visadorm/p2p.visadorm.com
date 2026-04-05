@@ -186,7 +186,7 @@ class MerchantController extends Controller
             ->where('status', TradeStatus::Completed)
             ->orderByDesc('completed_at')
             ->limit(10)
-            ->get(['merchant_id', 'buyer_wallet', 'amount_usdc', 'currency_code', 'payment_method', 'meeting_location', 'completed_at']);
+            ->get(['trade_hash', 'merchant_id', 'buyer_wallet', 'amount_usdc', 'currency_code', 'payment_method', 'meeting_location', 'nft_token_id', 'completed_at']);
 
         return response()->json([
             'data' => [
@@ -251,6 +251,8 @@ class MerchantController extends Controller
                         'currency_code' => $t->currency_code,
                         'payment_method' => $t->payment_method,
                         'meeting_location' => $t->meeting_location,
+                        'trade_hash' => $t->trade_hash,
+                        'nft_token_id' => $t->nft_token_id,
                         'time' => $t->completed_at?->diffForHumans(),
                     ]),
                 ],

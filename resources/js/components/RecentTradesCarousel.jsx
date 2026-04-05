@@ -1,5 +1,6 @@
 import { useRef, useEffect } from "react"
-import { CheckCircle } from "@phosphor-icons/react"
+import { CheckCircle, QrCode, ShieldCheck } from "@phosphor-icons/react"
+import { Button } from "@/components/ui/button"
 
 export default function RecentTradesCarousel({ trades }) {
   const scrollRef = useRef(null)
@@ -75,6 +76,28 @@ export default function RecentTradesCarousel({ trades }) {
                   <span>{trade.meeting_location}</span>
                 </div>
               )}
+              <div className="flex gap-2 mt-1">
+                {trade.nft_token_id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5 text-xs h-7"
+                    onClick={() => window.open(`https://sepolia.basescan.org/token/0xA31aaDAef8ED85ea73b4665291b3c4E7ED5F6bb6?a=${trade.nft_token_id}`, '_blank')}
+                  >
+                    <QrCode size={12} /> Verify NFT
+                  </Button>
+                )}
+                {trade.trade_hash && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5 text-xs h-7"
+                    onClick={() => window.open(`/verify/${trade.trade_hash}`, '_blank')}
+                  >
+                    <ShieldCheck size={12} /> View Proof
+                  </Button>
+                )}
+              </div>
             </div>
           )
         })}
