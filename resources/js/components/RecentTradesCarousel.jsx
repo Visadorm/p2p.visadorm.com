@@ -52,7 +52,7 @@ export default function RecentTradesCarousel({ trades }) {
         {trades.map((trade, i) => {
           const isCash = ["cash_meeting", "cash meeting"].includes((trade.payment_method || "").toLowerCase())
           return (
-            <div key={i} className="flex min-w-[200px] flex-col gap-2 rounded-xl border border-border/50 bg-card p-4 shrink-0">
+            <div key={i} className="flex min-w-[210px] flex-col gap-2 rounded-xl border border-border/50 bg-card p-4 shrink-0">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">{trade.counterparty || trade.buyer}</span>
                 <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
@@ -62,10 +62,19 @@ export default function RecentTradesCarousel({ trades }) {
                 </span>
               </div>
               <span className="font-mono text-base font-bold">${Number(trade.amount).toLocaleString()} USDC</span>
+              {trade.currency_code && (
+                <span className="text-xs text-muted-foreground">{trade.currency_code}</span>
+              )}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{trade.payment_method || "Transfer"}</span>
+                <span className="text-xs text-muted-foreground">{isCash ? "Cash Meeting" : (trade.payment_method || "Transfer")}</span>
                 <span className="text-xs text-muted-foreground">{trade.time}</span>
               </div>
+              {isCash && trade.meeting_location && (
+                <div className="flex items-center gap-1 text-xs text-amber-400">
+                  <span>📍</span>
+                  <span>{trade.meeting_location}</span>
+                </div>
+              )}
             </div>
           )
         })}

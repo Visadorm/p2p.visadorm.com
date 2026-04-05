@@ -181,7 +181,7 @@ class MerchantController extends Controller
             ->where('status', TradeStatus::Completed)
             ->orderByDesc('completed_at')
             ->limit(10)
-            ->get(['merchant_id', 'buyer_wallet', 'amount_usdc', 'payment_method', 'completed_at']);
+            ->get(['merchant_id', 'buyer_wallet', 'amount_usdc', 'currency_code', 'payment_method', 'meeting_location', 'completed_at']);
 
         return response()->json([
             'data' => [
@@ -243,7 +243,9 @@ class MerchantController extends Controller
                             : 'Seller',
                         'role' => $t->merchant_id === $merchant->id ? 'sell' : 'buy',
                         'amount' => $t->amount_usdc,
+                        'currency_code' => $t->currency_code,
                         'payment_method' => $t->payment_method,
+                        'meeting_location' => $t->meeting_location,
                         'time' => $t->completed_at?->diffForHumans(),
                     ]),
                 ],
