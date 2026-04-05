@@ -12,6 +12,7 @@ import {
   ChartLineUp,
   CheckCircle,
   Warning,
+  CaretLeft,
   CaretRight,
   Globe,
   Handshake,
@@ -199,6 +200,7 @@ export default function MerchantProfile({ username }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedAmount, setSelectedAmount] = useState(null)
+  const [cashPage, setCashPage] = useState(0)
   const [customAmount, setCustomAmount] = useState("")
   const [currency, setCurrency] = useState("")
 
@@ -561,17 +563,34 @@ export default function MerchantProfile({ username }) {
             <RecentTradesCarousel trades={recentTrades.filter(t => !["cash_meeting", "cash meeting"].includes((t.payment_method || "").toLowerCase()))} />
 
             {/* Cash Meeting Trades */}
-            {recentTrades.filter(t => ["cash_meeting", "cash meeting"].includes((t.payment_method || "").toLowerCase())).length > 0 && (
+            {(() => {
+              const cashTrades = recentTrades.filter(t => ["cash_meeting", "cash meeting"].includes((t.payment_method || "").toLowerCase()))
+              const totalCashPages = Math.ceil(cashTrades.length / 4)
+              const pagedCashTrades = cashTrades.slice(cashPage * 4, (cashPage + 1) * 4)
+              return cashTrades.length > 0 && (
               <Card className="border-border/50">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Handshake weight="duotone" className="size-5 text-emerald-400" />
-                    Cash Meeting Trades
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Handshake weight="duotone" className="size-5 text-emerald-400" />
+                      Cash Meeting Trades
+                    </CardTitle>
+                    {totalCashPages > 1 && (
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setCashPage(p => Math.max(0, p - 1))} disabled={cashPage === 0} className="rounded-md border border-border/50 p-1 disabled:opacity-30">
+                          <CaretLeft size={16} />
+                        </button>
+                        <span className="text-xs text-muted-foreground">{cashPage + 1}/{totalCashPages}</span>
+                        <button onClick={() => setCashPage(p => Math.min(totalCashPages - 1, p + 1))} disabled={cashPage >= totalCashPages - 1} className="rounded-md border border-border/50 p-1 disabled:opacity-30">
+                          <CaretRight size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {recentTrades.filter(t => ["cash_meeting", "cash meeting"].includes((t.payment_method || "").toLowerCase())).map((trade, i) => (
+                    {pagedCashTrades.map((trade, i) => (
                       <div key={i} className="rounded-xl border border-border/50 bg-muted/10 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="font-mono text-sm font-semibold">#{trade.trade_hash ? trade.trade_hash.slice(2, 8) : "---"}</span>
@@ -629,7 +648,7 @@ export default function MerchantProfile({ username }) {
                   </div>
                 </CardContent>
               </Card>
-            )}
+            )})()}
 
             {/* Reviews */}
             {(reviews.length > 0 || merchant.review_count > 0) && (
