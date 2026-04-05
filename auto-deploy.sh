@@ -65,16 +65,15 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-# One-time fix: drop old reviews unique index if it still exists
-INDEX_FIX=$(php artisan tinker --execute="try { Schema::table('reviews', fn(\$t) => \$t->dropUnique(['trade_id'])); echo 'DROPPED'; } catch (\Throwable) { echo 'ALREADY_GONE'; }" 2>/dev/null || echo "SKIP")
-
 # One-time fix: recreate storage symlink
 rm -f /home/visadorm/p2p.visadorm.com/public/storage
-LINK_FIX=$(php artisan storage:link 2>&1 || echo "FAILED")
-
-send_tg "<b>One-Time Fixes</b>
-<b>Reviews index:</b> ${INDEX_FIX}
-<b>Storage link:</b> ${LINK_FIX}"
+php artisan storage:link 2>/dev/null || true
+if [ -L /home/visadorm/p2p.visadorm.com/public/storage ]; then
+    STORAGE_STATUS="OK"
+else
+    STORAGE_STATUS="FAILED"
+fi
+send_tg "<b>Storage Link:</b> ${STORAGE_STATUS}"
 
 php artisan optimize:clear
 php artisan optimize
