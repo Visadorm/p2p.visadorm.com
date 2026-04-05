@@ -516,18 +516,14 @@ export default function MerchantProfile({ username }) {
                     {cashMethods.length > 0 && (
                       <div>
                         <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">In-Person</p>
-                        <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
                           {cashMethods.map(m => (
-                            <div key={m.name} className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
-                              <m.icon weight="duotone" size={18} className="text-emerald-400 shrink-0" />
-                              <span className="text-sm font-medium text-emerald-400">{m.name}</span>
-                              {m.location && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
-                                  <MapPin weight="fill" size={12} />
-                                  {m.location}
-                                </span>
-                              )}
-                            </div>
+                            <span key={m.name} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-400">
+                              <m.icon weight="duotone" size={18} />
+                              {m.name}
+                              {m.location && <span className="text-xs text-muted-foreground">({m.location})</span>}
+                              <MapPin weight="fill" size={14} />
+                            </span>
                           ))}
                         </div>
                       </div>
