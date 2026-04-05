@@ -154,6 +154,10 @@ class MerchantController extends Controller
             ], 404);
         }
 
+        // Recalculate badges on every profile load (ensures liquidity badge is current)
+        rescue(fn () => app(\App\Services\MerchantBadgeService::class)->updateBadges($merchant));
+        $merchant->refresh();
+
         $reviews = $merchant->reviews()
             ->where('is_hidden', false)
             ->latest('created_at')
