@@ -65,16 +65,6 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-# One-time fix: recreate storage symlink
-rm -f /home/visadorm/p2p.visadorm.com/public/storage
-php artisan storage:link 2>/dev/null || true
-if [ -L /home/visadorm/p2p.visadorm.com/public/storage ]; then
-    STORAGE_STATUS="OK"
-else
-    STORAGE_STATUS="FAILED"
-fi
-send_tg "<b>Storage Link:</b> ${STORAGE_STATUS}"
-
 php artisan optimize:clear
 php artisan optimize
 php artisan filament:optimize
