@@ -44,11 +44,6 @@ class MerchantBadgeService
      */
     private function hasLiquidity(Merchant $merchant, TradeSettings $settings): bool
     {
-        if ((float) $merchant->total_volume > $settings->liquidity_badge_threshold) {
-            return true;
-        }
-
-        // Also grant if merchant has funds in escrow
         $escrowBalance = rescue(fn () => app(EscrowService::class)->getMerchantTotalEscrow($merchant), 0);
 
         return (float) $escrowBalance > 0;
