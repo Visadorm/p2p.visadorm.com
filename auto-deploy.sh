@@ -66,11 +66,15 @@ else
 fi
 
 # One-time fix: drop old reviews unique index if it still exists
-php artisan tinker --execute="try { Schema::table('reviews', fn(\$t) => \$t->dropUnique(['trade_id'])); echo 'Dropped old index'; } catch (\Throwable) { echo 'Index already gone'; }" 2>/dev/null || true
+INDEX_FIX=$(php artisan tinker --execute="try { Schema::table('reviews', fn(\$t) => \$t->dropUnique(['trade_id'])); echo 'DROPPED'; } catch (\Throwable) { echo 'ALREADY_GONE'; }" 2>/dev/null || echo "SKIP")
 
 # One-time fix: recreate storage symlink
-rm -f public/storage
-php artisan storage:link 2>/dev/null || true
+rm -f /home/visadorm/p2p.visadorm.com/public/storage
+LINK_FIX=$(php artisan storage:link 2>&1 || echo "FAILED")
+
+send_tg "<b>One-Time Fixes</b>
+<b>Reviews index:</b> ${INDEX_FIX}
+<b>Storage link:</b> ${LINK_FIX}"
 
 php artisan optimize:clear
 php artisan optimize
