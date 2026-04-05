@@ -579,7 +579,7 @@ export default function MerchantProfile({ username }) {
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                               trade.role === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
                             }`}>
-                              {trade.role === "buy" ? "Bought" : "Sold"}
+                              {trade.role === "buy" ? "Buy" : "Sell"}
                             </span>
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/15 text-emerald-400">
                               Confirmed
@@ -664,7 +664,7 @@ export default function MerchantProfile({ username }) {
                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                                     isBuyReview ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
                                   }`}>
-                                    {isBuyReview ? "Bought" : "Sold"}
+                                    {isBuyReview ? "Buy" : "Sell"}
                                   </span>
                                 </div>
                                 <ReviewStars rating={review.rating} size={13} />
