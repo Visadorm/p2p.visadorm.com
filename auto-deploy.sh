@@ -6,7 +6,6 @@
 # Only deploys if new changes detected
 # ============================================
 BRANCH="main"
-# v3
 
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
@@ -69,7 +68,6 @@ fi
 php artisan optimize:clear
 php artisan optimize
 php artisan filament:optimize
-php artisan icons:cache
 php artisan queue:restart
 
 chmod -R 775 storage bootstrap/cache
@@ -116,8 +114,6 @@ MSG="<b>Deploy Complete</b>
 
 send_tg "$MSG"
 
-# Send last error from laravel.log
-LAST_ERR=$(grep -A 2 "ERROR" "$PROJECT_DIR/storage/logs/laravel.log" 2>/dev/null | tail -10 | head -5)
-if [ -n "$LAST_ERR" ]; then
-    send_tg "Last error: ${LAST_ERR}"
-fi
+# Clear old log and send fresh errors on next deploy
+> "$PROJECT_DIR/storage/logs/laravel.log" 2>/dev/null || true
+send_tg "Log cleared. Test now then push again to get errors."

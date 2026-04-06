@@ -64,7 +64,6 @@ php artisan optimize:clear
 echo "[6/9] Rebuilding caches..."
 php artisan optimize
 php artisan filament:optimize
-php artisan icons:cache
 
 echo "[7/9] Restarting queue workers..."
 php artisan queue:restart
