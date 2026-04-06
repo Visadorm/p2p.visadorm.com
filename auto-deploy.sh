@@ -6,7 +6,6 @@
 # Only deploys if new changes detected
 # ============================================
 BRANCH="main"
-# v2
 
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
@@ -65,16 +64,6 @@ if echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
 else
     MIGRATE_STATUS="Skipped"
 fi
-
-# Fix reviews: drop old unique, add composite unique, report result
-php artisan tinker --execute="
-try { DB::statement('ALTER TABLE reviews DROP INDEX reviews_trade_id_unique'); } catch (\Throwable) {}
-try { DB::statement('ALTER TABLE reviews ADD UNIQUE INDEX reviews_trade_id_reviewer_role_unique (trade_id, reviewer_role)'); } catch (\Throwable) {}
-\$indexes = collect(DB::select('SHOW INDEX FROM reviews'))->pluck('Key_name')->unique()->implode(', ');
-echo \$indexes;
-" > /tmp/idx_result.txt 2>&1 || true
-IDX_RESULT=$(grep -v "^$" /tmp/idx_result.txt | tail -1)
-send_tg "DB indexes: ${IDX_RESULT}"
 
 php artisan optimize:clear
 php artisan optimize
