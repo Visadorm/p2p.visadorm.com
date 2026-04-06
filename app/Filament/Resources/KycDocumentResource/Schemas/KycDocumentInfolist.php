@@ -80,13 +80,13 @@ class KycDocumentInfolist
                                     ->color('danger')
                                     ->visible(fn ($state) => ! empty($state)),
 
-                                TextEntry::make('file_path')
+                                TextEntry::make('id')
                                     ->label('View Document')
                                     ->formatStateUsing(fn () => 'Open in new tab')
                                     ->icon(Heroicon::OutlinedEye)
-                                    ->url(fn ($state) => $state ? route('admin.kyc.download', ['kycDocument' => 0, 'path' => $state]) : null)
+                                    ->url(fn ($record) => $record?->id ? route('admin.kyc.download', ['kycDocument' => $record->id]) : null)
                                     ->openUrlInNewTab()
-                                    ->visible(fn ($state) => ! empty($state)),
+                                    ->visible(fn ($record) => ! empty($record?->file_path)),
                             ])
                             ->columns(3)
                             ->placeholder('No documents uploaded'),

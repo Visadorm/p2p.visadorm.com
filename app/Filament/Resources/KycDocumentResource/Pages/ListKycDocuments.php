@@ -4,7 +4,6 @@ namespace App\Filament\Resources\KycDocumentResource\Pages;
 
 use App\Enums\KycStatus;
 use App\Filament\Resources\KycDocumentResource\KycDocumentResource;
-use App\Models\KycDocument;
 use App\Models\Merchant;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Resources\Pages\ListRecords;
