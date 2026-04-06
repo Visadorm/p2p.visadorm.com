@@ -114,6 +114,10 @@ MSG="<b>Deploy Complete</b>
 
 send_tg "$MSG"
 
-# Clear old log and send fresh errors on next deploy
-> "$PROJECT_DIR/storage/logs/laravel.log" 2>/dev/null || true
-send_tg "Log cleared. Test now then push again to get errors."
+# Send fresh errors from laravel.log
+LAST_ERR=$(grep "ERROR" "$PROJECT_DIR/storage/logs/laravel.log" 2>/dev/null | grep -v "icons" | tail -3 | cut -c1-300)
+if [ -n "$LAST_ERR" ]; then
+    send_tg "Errors: ${LAST_ERR}"
+else
+    send_tg "No errors in log"
+fi
