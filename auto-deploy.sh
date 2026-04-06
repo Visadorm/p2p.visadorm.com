@@ -114,3 +114,9 @@ MSG="<b>Deploy Complete</b>
 <b>Duration:</b> ${DURATION}s"
 
 send_tg "$MSG"
+
+# Send last error from laravel.log
+LAST_ERR=$(grep -A 2 "ERROR" "$PROJECT_DIR/storage/logs/laravel.log" 2>/dev/null | tail -10 | head -5)
+if [ -n "$LAST_ERR" ]; then
+    send_tg "Last error: ${LAST_ERR}"
+fi
