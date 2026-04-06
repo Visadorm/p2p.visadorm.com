@@ -125,7 +125,8 @@ class TradeController extends Controller
         // Validate payment method is offered by this merchant
         $hasPaymentMethod = $merchant->paymentMethods()
             ->where('is_active', true)
-            ->where(fn ($q) => $q->where('provider', $validated['payment_method'])
+            ->where(fn ($q) => $q->where('id', $validated['payment_method'])
+                ->orWhere('provider', $validated['payment_method'])
                 ->orWhere('label', $validated['payment_method'])
                 ->orWhere('type', $validated['payment_method']))
             ->exists();
@@ -192,7 +193,8 @@ class TradeController extends Controller
         $meetingLocation = null;
         $paymentMethodRecord = $merchant->paymentMethods()
             ->where('is_active', true)
-            ->where(fn ($q) => $q->where('provider', $validated['payment_method'])
+            ->where(fn ($q) => $q->where('id', $validated['payment_method'])
+                ->orWhere('provider', $validated['payment_method'])
                 ->orWhere('label', $validated['payment_method'])
                 ->orWhere('type', $validated['payment_method']))
             ->first();
@@ -206,7 +208,7 @@ class TradeController extends Controller
             'amount_fiat' => $amountFiat,
             'exchange_rate' => $exchangeRate,
             'currency_code' => $validated['currency_code'],
-            'payment_method' => $validated['payment_method'],
+            'payment_method' => $paymentMethodRecord?->label ?? $paymentMethodRecord?->provider ?? $validated['payment_method'],
             'buyer_wallet' => $request->user()->wallet_address,
             'trading_link_id' => $link->id,
             'type' => TradeType::Buy,

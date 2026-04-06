@@ -365,11 +365,17 @@ export default function TradeStart({ slug }) {
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.map((m) => (
-                    <SelectItem key={m.id || m.provider || m.label} value={m.provider || m.label}>
-                      {m.label || m.provider}
-                    </SelectItem>
-                  ))}
+                  {paymentMethods.map((m) => {
+                    const isCash = m.type === "cash_meeting"
+                    const displayName = isCash && m.location
+                      ? `${m.location} | Cash Meeting`
+                      : (m.label || m.provider)
+                    return (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        {displayName}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
