@@ -359,6 +359,12 @@ export default function TradeRelease({ tradeHash }) {
                     <span className="text-sm">{trade.meeting_location}</span>
                   </div>
                 )}
+                {trade?.safety_note && (
+                  <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 mt-3">
+                    <Warning weight="fill" size={14} className="mt-0.5 shrink-0 text-amber-400" />
+                    <p className="text-sm text-amber-400">{trade.safety_note}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

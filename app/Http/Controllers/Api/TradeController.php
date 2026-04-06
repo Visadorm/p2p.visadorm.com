@@ -200,7 +200,10 @@ class TradeController extends Controller
             ->first();
 
         if ($paymentMethodRecord?->location) {
-            $meetingLocation = $paymentMethodRecord->location;
+            $meetingPoint = $paymentMethodRecord->details['meeting_point'] ?? null;
+            $meetingLocation = $meetingPoint
+                ? $paymentMethodRecord->location . ' — ' . $meetingPoint
+                : $paymentMethodRecord->location;
         }
 
         $trade = $this->tradeService->initiateTrade($merchant, [
@@ -302,6 +305,7 @@ class TradeController extends Controller
 
         $data['payment_method_details'] = $paymentMethod?->details;
         $data['payment_method_label'] = $paymentMethod?->label;
+        $data['safety_note'] = $paymentMethod?->safety_note;
 
         // Show masked merchant identity for verified merchants (seller → buyer)
         $m = $trade->merchant;
