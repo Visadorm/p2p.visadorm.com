@@ -65,14 +65,15 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-# Check reviews indexes and ensure composite unique exists
-DB_USER=$(grep '^DB_USERNAME=' .env | cut -d'=' -f2)
-DB_PASS=$(grep '^DB_PASSWORD=' .env | cut -d'=' -f2)
-DB_NAME=$(grep '^DB_DATABASE=' .env | cut -d'=' -f2)
-IDX_LIST=$(mysql -u${DB_USER} -p${DB_PASS} ${DB_NAME} -N -e "SHOW INDEX FROM reviews WHERE Key_name LIKE '%unique%';" 2>/dev/null | awk '{print $3}' | sort -u || echo "QUERY_FAILED")
-# Add composite unique if missing
-mysql -u${DB_USER} -p${DB_PASS} ${DB_NAME} -e "ALTER TABLE reviews ADD UNIQUE INDEX reviews_trade_id_reviewer_role_unique (trade_id, reviewer_role);" 2>/dev/null && IDX_LIST="${IDX_LIST} +COMPOSITE_ADDED" || IDX_LIST="${IDX_LIST} +COMPOSITE_EXISTS"
-send_tg "Reviews indexes: ${IDX_LIST}"
+# Fix reviews: drop old unique, add composite unique, report result
+php artisan tinker --execute="
+try { DB::statement('ALTER TABLE reviews DROP INDEX reviews_trade_id_unique'); } catch (\Throwable) {}
+try { DB::statement('ALTER TABLE reviews ADD UNIQUE INDEX reviews_trade_id_reviewer_role_unique (trade_id, reviewer_role)'); } catch (\Throwable) {}
+\$indexes = collect(DB::select('SHOW INDEX FROM reviews'))->pluck('Key_name')->unique()->implode(', ');
+echo \$indexes;
+" > /tmp/idx_result.txt 2>&1 || true
+IDX_RESULT=$(grep -v "^$" /tmp/idx_result.txt | tail -1)
+send_tg "DB indexes: ${IDX_RESULT}"
 
 php artisan optimize:clear
 php artisan optimize
