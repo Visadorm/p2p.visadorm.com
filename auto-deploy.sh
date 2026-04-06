@@ -6,6 +6,7 @@
 # Only deploys if new changes detected
 # ============================================
 BRANCH="main"
+# v2
 
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
