@@ -6,7 +6,7 @@ use App\Filament\Resources\KycDocumentResource\Pages\ListKycDocuments;
 use App\Filament\Resources\KycDocumentResource\Pages\ViewKycDocument;
 use App\Filament\Resources\KycDocumentResource\Schemas\KycDocumentInfolist;
 use App\Filament\Resources\KycDocumentResource\Tables\KycDocumentsTable;
-use App\Models\KycDocument;
+use App\Models\Merchant;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -14,9 +14,9 @@ use Filament\Tables\Table;
 
 class KycDocumentResource extends Resource
 {
-    protected static ?string $model = KycDocument::class;
+    protected static ?string $model = Merchant::class;
 
-    protected static ?string $recordTitleAttribute = 'id';
+    protected static ?string $recordTitleAttribute = 'username';
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentCheck;
 
@@ -61,7 +61,7 @@ class KycDocumentResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->with(['merchant:id,username']);
+        return Merchant::whereHas('kycDocuments')->with('kycDocuments');
     }
 
     public static function getPages(): array

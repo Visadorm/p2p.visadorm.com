@@ -2,16 +2,10 @@
 
 namespace App\Filament\Resources\KycDocumentResource\Tables;
 
+use App\Enums\KycDocumentType;
 use App\Enums\KycStatus;
-use App\Events\KycDocumentReviewed;
-use App\Models\KycDocument;
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Textarea;
-use Filament\Notifications\Notification;
 use Filament\Support\Enums\FontWeight;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -22,82 +16,81 @@ class KycDocumentsTable
     {
         return $table
             ->columns([
-                TextColumn::make('merchant.username')
-                    ->label(__('kyc.merchant'))
+                TextColumn::make('username')
+                    ->label(__('merchant.username'))
                     ->searchable()
                     ->sortable()
                     ->weight(FontWeight::Medium),
 
-                TextColumn::make('type')
-                    ->label(__('kyc.document_type_label'))
-                    ->badge()
-                    ->sortable(),
+                TextColumn::make('full_name')
+                    ->label(__('merchant.full_name'))
+                    ->placeholder('—')
+                    ->searchable(),
 
-                TextColumn::make('status')
-                    ->label(__('p2p.status'))
-                    ->badge()
-                    ->sortable(),
+                TextColumn::make('wallet_address')
+                    ->label(__('p2p.wallet_address'))
+                    ->limit(10)
+                    ->tooltip(fn ($record) => $record->wallet_address),
 
-                TextColumn::make('created_at')
-                    ->label(__('kyc.submitted_at'))
-                    ->dateTime()
-                    ->sortable(),
+                TextColumn::make('id_status')
+                    ->label(__('kyc.type.id_document'))
+                    ->state(fn ($record) => self::getDocStatus($record, KycDocumentType::IdDocument))
+                    ->badge()
+                    ->color(fn ($state) => self::statusColor($state)),
+
+                TextColumn::make('bank_status')
+                    ->label(__('kyc.type.bank_statement'))
+                    ->state(fn ($record) => self::getDocStatus($record, KycDocumentType::BankStatement))
+                    ->badge()
+                    ->color(fn ($state) => self::statusColor($state)),
+
+                TextColumn::make('residency_status')
+                    ->label(__('kyc.type.proof_of_residency'))
+                    ->state(fn ($record) => self::getDocStatus($record, KycDocumentType::ProofOfResidency))
+                    ->badge()
+                    ->color(fn ($state) => self::statusColor($state)),
+
+                TextColumn::make('business_status')
+                    ->label(__('kyc.type.business_document'))
+                    ->state(fn ($record) => self::getDocStatus($record, KycDocumentType::BusinessDocument))
+                    ->badge()
+                    ->color(fn ($state) => self::statusColor($state)),
             ])
             ->filters([
-                SelectFilter::make('status')
+                SelectFilter::make('kyc_status')
                     ->label(__('p2p.status'))
-                    ->options(KycStatus::class),
+                    ->options(KycStatus::class)
+                    ->attribute('kyc_status'),
             ])
             ->recordActions([
                 ViewAction::make(),
-                ActionGroup::make([
-                    Action::make('approve')
-                        ->label(__('kyc.approve'))
-                        ->icon(Heroicon::OutlinedCheckCircle)
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->action(function (KycDocument $record): void {
-                            $record->update([
-                                'status' => KycStatus::Approved,
-                                'reviewed_at' => now(),
-                            ]);
-
-                            KycDocumentReviewed::dispatch($record);
-
-                            Notification::make()
-                                ->title(__('kyc.approve'))
-                                ->success()
-                                ->send();
-                        })
-                        ->hidden(fn (KycDocument $record): bool => $record->status !== KycStatus::Pending),
-
-                    Action::make('reject')
-                        ->label(__('kyc.reject'))
-                        ->icon(Heroicon::OutlinedXCircle)
-                        ->color('danger')
-                        ->requiresConfirmation()
-                        ->schema([
-                            Textarea::make('rejection_reason')
-                                ->label(__('kyc.rejection_reason'))
-                                ->required(),
-                        ])
-                        ->action(function (KycDocument $record, array $data): void {
-                            $record->update([
-                                'status' => KycStatus::Rejected,
-                                'rejection_reason' => $data['rejection_reason'],
-                                'reviewed_at' => now(),
-                            ]);
-
-                            KycDocumentReviewed::dispatch($record);
-
-                            Notification::make()
-                                ->title(__('kyc.reject'))
-                                ->success()
-                                ->send();
-                        })
-                        ->hidden(fn (KycDocument $record): bool => $record->status !== KycStatus::Pending),
-                ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('id', 'desc');
+    }
+
+    private static function getDocStatus($merchant, KycDocumentType $type): string
+    {
+        $doc = $merchant->kycDocuments->where('type', $type)->sortByDesc('created_at')->first();
+
+        if (! $doc) {
+            return 'Not Uploaded';
+        }
+
+        return match ($doc->status) {
+            KycStatus::Approved => 'Approved',
+            KycStatus::Rejected => 'Rejected',
+            KycStatus::Pending => 'Pending',
+            default => 'Unknown',
+        };
+    }
+
+    private static function statusColor(string $state): string
+    {
+        return match ($state) {
+            'Approved' => 'success',
+            'Pending' => 'warning',
+            'Rejected' => 'danger',
+            default => 'gray',
+        };
     }
 }
