@@ -49,7 +49,11 @@ class MerchantInfolist
 
                         TextEntry::make('kyc_status')
                             ->label(__('kyc.status_label'))
-                            ->badge(),
+                            ->badge()
+                            ->url(fn ($record) => $record->kycDocuments()->exists()
+                                ? route('filament.admin.resources.verification.kyc-documents.view', $record)
+                                : null)
+                            ->openUrlInNewTab(),
 
                         TextEntry::make('buyer_verification')
                             ->label(__('merchant.buyer_verification_label'))

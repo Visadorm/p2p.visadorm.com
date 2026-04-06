@@ -18,7 +18,9 @@ class KycDocumentInfolist
                     ->schema([
                         TextEntry::make('username')
                             ->label(__('merchant.username'))
-                            ->weight('bold'),
+                            ->weight('bold')
+                            ->url(fn ($record) => route('filament.admin.resources.p2p.merchants.view', $record))
+                            ->openUrlInNewTab(),
 
                         TextEntry::make('full_name')
                             ->label(__('merchant.full_name'))
@@ -40,47 +42,53 @@ class KycDocumentInfolist
                             ->label(__('kyc.status_label'))
                             ->badge(),
                     ])
-                    ->columns(2),
+                    ->columns(3),
 
                 Section::make(__('p2p.kyc_documents'))
+                    ->description('Review and manage uploaded verification documents')
                     ->schema([
                         RepeatableEntry::make('kycDocuments')
                             ->label('')
                             ->schema([
                                 TextEntry::make('type')
                                     ->label(__('kyc.document_type_label'))
-                                    ->badge(),
+                                    ->badge()
+                                    ->size('lg'),
 
                                 TextEntry::make('status')
                                     ->label(__('p2p.status'))
-                                    ->badge(),
+                                    ->badge()
+                                    ->size('lg'),
 
                                 TextEntry::make('original_name')
-                                    ->label(__('kyc.original_name'))
-                                    ->placeholder('—'),
-
-                                TextEntry::make('rejection_reason')
-                                    ->label(__('kyc.rejection_reason'))
+                                    ->label('File')
+                                    ->icon(Heroicon::OutlinedDocument)
                                     ->placeholder('—'),
 
                                 TextEntry::make('created_at')
                                     ->label(__('kyc.submitted_at'))
-                                    ->dateTime(),
+                                    ->dateTime('M d, Y H:i'),
 
                                 TextEntry::make('reviewed_at')
                                     ->label(__('kyc.reviewed_at'))
-                                    ->dateTime()
-                                    ->placeholder('—'),
+                                    ->dateTime('M d, Y H:i')
+                                    ->placeholder('Not reviewed'),
+
+                                TextEntry::make('rejection_reason')
+                                    ->label(__('kyc.rejection_reason'))
+                                    ->placeholder('—')
+                                    ->color('danger')
+                                    ->visible(fn ($state) => ! empty($state)),
 
                                 TextEntry::make('file_path')
-                                    ->label(__('kyc.view_document'))
-                                    ->formatStateUsing(fn () => __('kyc.download_document'))
-                                    ->icon(Heroicon::OutlinedArrowDownTray)
+                                    ->label('View Document')
+                                    ->formatStateUsing(fn () => 'Open in new tab')
+                                    ->icon(Heroicon::OutlinedEye)
                                     ->url(fn ($state) => $state ? route('admin.kyc.download', ['kycDocument' => 0, 'path' => $state]) : null)
                                     ->openUrlInNewTab()
                                     ->visible(fn ($state) => ! empty($state)),
                             ])
-                            ->columns(4)
+                            ->columns(3)
                             ->placeholder('No documents uploaded'),
                     ]),
             ]);

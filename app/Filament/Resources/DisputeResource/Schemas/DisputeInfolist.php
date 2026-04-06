@@ -157,12 +157,27 @@ class DisputeInfolist
                             ->money('USD'),
 
                         TextEntry::make('trade.merchant.username')
-                            ->label(__('trade.merchant')),
+                            ->label(__('trade.merchant'))
+                            ->url(fn ($record) => $record->trade?->merchant
+                                ? route('filament.admin.resources.p2p.merchants.view', $record->trade->merchant)
+                                : null)
+                            ->openUrlInNewTab()
+                            ->color('primary'),
 
                         TextEntry::make('trade.buyer_wallet')
                             ->label(__('trade.buyer_wallet'))
                             ->copyable()
-                            ->limit(20),
+                            ->limit(20)
+                            ->formatStateUsing(function ($state) {
+                                $buyer = \App\Models\Merchant::where('wallet_address', $state)->first();
+                                return $buyer ? "{$buyer->username} ({$state})" : $state;
+                            })
+                            ->url(function ($record) {
+                                $buyer = \App\Models\Merchant::where('wallet_address', $record->trade?->buyer_wallet)->first();
+                                return $buyer ? route('filament.admin.resources.p2p.merchants.view', $buyer) : null;
+                            })
+                            ->openUrlInNewTab()
+                            ->color('primary'),
 
                         TextEntry::make('trade.payment_method')
                             ->label(__('trade.payment_method')),
