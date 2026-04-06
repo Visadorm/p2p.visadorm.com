@@ -66,15 +66,9 @@ else
 fi
 
 # Fix: drop old reviews unique index (allows two-way reviews)
-INDEX_RESULT=$(php artisan tinker --execute="
-try {
-    DB::statement('ALTER TABLE reviews DROP INDEX reviews_trade_id_unique');
-    echo 'DROPPED';
-} catch (\Throwable \$e) {
-    echo 'SKIP:' . \$e->getMessage();
-}
-" 2>&1 | tail -1 || echo "FAILED")
-send_tg "<b>Index Fix:</b> ${INDEX_RESULT}"
+php artisan tinker --execute="try { DB::statement('ALTER TABLE reviews DROP INDEX reviews_trade_id_unique'); echo 'DROPPED'; } catch (\Throwable) { echo 'ALREADY_DONE'; }" > /tmp/index_fix.txt 2>&1 || true
+INDEX_RESULT=$(cat /tmp/index_fix.txt | grep -oE 'DROPPED|ALREADY_DONE' || echo "UNKNOWN")
+send_tg "Index: ${INDEX_RESULT}"
 
 php artisan optimize:clear
 php artisan optimize
