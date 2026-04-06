@@ -90,12 +90,26 @@ class MerchantTradeController extends Controller
             ], 404);
         }
 
+        $data = [
+            'trade' => $trade,
+            'has_bank_proof' => ! empty($trade->bank_proof_path),
+            'has_buyer_id' => ! empty($trade->buyer_id_path),
+        ];
+
+        // Show buyer's verified name to seller (if buyer has KYC approved)
+        $buyerMerchant = \App\Models\Merchant::where('wallet_address', $trade->buyer_wallet)->first();
+        if ($buyerMerchant && $buyerMerchant->kyc_status?->value === 'approved' && $buyerMerchant->full_name) {
+            $parts = explode(' ', $buyerMerchant->full_name, 2);
+            $first = $parts[0] ?? '';
+            $last = isset($parts[1]) ? strtoupper(substr($parts[1], 0, 1)) . str_repeat('*', max(0, strlen($parts[1]) - 1)) : '';
+            $data['buyer_verified_name'] = trim($first . ' ' . $last);
+            if ($buyerMerchant->business_name) {
+                $data['buyer_business_name'] = $buyerMerchant->business_name;
+            }
+        }
+
         return response()->json([
-            'data' => [
-                'trade' => $trade,
-                'has_bank_proof' => ! empty($trade->bank_proof_path),
-                'has_buyer_id' => ! empty($trade->buyer_id_path),
-            ],
+            'data' => $data,
             'message' => __('p2p.trade_status_loaded'),
         ]);
     }

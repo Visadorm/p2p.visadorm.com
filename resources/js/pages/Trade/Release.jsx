@@ -292,6 +292,24 @@ export default function TradeRelease({ tradeHash }) {
                   <span className="text-sm text-muted-foreground">Buyer Wallet</span>
                   <span className="font-mono text-sm">{truncatedWallet}</span>
                 </div>
+                {trade?.buyer_verified_name && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Buyer Name</span>
+                      <span className="text-sm font-semibold">{trade.buyer_verified_name}</span>
+                    </div>
+                  </>
+                )}
+                {trade?.buyer_business_name && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Buyer Business</span>
+                      <span className="text-sm font-semibold">{trade.buyer_business_name}</span>
+                    </div>
+                  </>
+                )}
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Amount</span>

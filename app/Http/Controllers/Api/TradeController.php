@@ -163,6 +163,7 @@ class TradeController extends Controller
                 TradeStatus::Pending,
                 TradeStatus::EscrowLocked,
                 TradeStatus::PaymentSent,
+                TradeStatus::Disputed,
             ])
             ->exists();
 
@@ -290,7 +291,7 @@ class TradeController extends Controller
         $data['payment_method_details'] = $paymentMethod?->details;
         $data['payment_method_label'] = $paymentMethod?->label;
 
-        // Show masked merchant identity for verified merchants
+        // Show masked merchant identity for verified merchants (seller → buyer)
         $m = $trade->merchant;
         if ($m->kyc_status?->value === 'approved' && $m->full_name) {
             $parts = explode(' ', $m->full_name, 2);
@@ -299,6 +300,20 @@ class TradeController extends Controller
             $data['merchant_verified_name'] = trim($first . ' ' . $last);
             if ($m->business_name) {
                 $data['merchant_business_name'] = $m->business_name;
+            }
+        }
+
+        // Show masked buyer identity for verified buyers (buyer → seller)
+        if ($isMerchant) {
+            $buyerMerchant = \App\Models\Merchant::where('wallet_address', $trade->buyer_wallet)->first();
+            if ($buyerMerchant && $buyerMerchant->kyc_status?->value === 'approved' && $buyerMerchant->full_name) {
+                $parts = explode(' ', $buyerMerchant->full_name, 2);
+                $first = $parts[0] ?? '';
+                $last = isset($parts[1]) ? strtoupper(substr($parts[1], 0, 1)) . str_repeat('*', max(0, strlen($parts[1]) - 1)) : '';
+                $data['buyer_verified_name'] = trim($first . ' ' . $last);
+                if ($buyerMerchant->business_name) {
+                    $data['buyer_business_name'] = $buyerMerchant->business_name;
+                }
             }
         }
 

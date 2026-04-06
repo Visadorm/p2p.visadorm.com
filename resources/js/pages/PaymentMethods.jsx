@@ -167,8 +167,9 @@ export default function PaymentMethods() {
           currency: formData.currency || undefined,
         }
       } else if (formData.type === "cash_meeting") {
-        details = {}
-        if (formData.meeting_point) details.meeting_point = formData.meeting_point
+        details = {
+          meeting_point: formData.meeting_point || undefined,
+        }
       }
       // Remove undefined values
       details = Object.fromEntries(Object.entries(details).filter(([, v]) => v))
@@ -178,10 +179,10 @@ export default function PaymentMethods() {
         type: formData.type,
         provider: providerName,
         label: providerName,
-        ...(Object.keys(details).length > 0 ? { details } : {}),
+        details,
         ...(formData.type === "cash_meeting" ? {
-          location: formData.location || null,
-          safety_note: formData.safety_note || null,
+          location: formData.location || undefined,
+          safety_note: formData.safety_note || undefined,
         } : {}),
       }
       if (editingMethod) {
@@ -410,13 +411,14 @@ export default function PaymentMethods() {
             {formData.type === "cash_meeting" && (
               <>
                 <div className="space-y-2">
-                  <Label>Location / City</Label>
+                  <Label>Location Name</Label>
                   <Input
                     value={formData.location}
                     onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
-                    placeholder="e.g., Santo Domingo"
+                    placeholder="e.g., Punta Cana, Santo Domingo, Lagos"
                     required
                   />
+                  <p className="text-xs text-muted-foreground">This location will be shown on your profile and trade details</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Meeting Point <span className="text-muted-foreground font-normal">(optional)</span></Label>
