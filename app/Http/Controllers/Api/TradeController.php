@@ -177,15 +177,22 @@ class TradeController extends Controller
             ], 422);
         }
 
+        // Calculate exchange rate (before dry_run so errors are caught in pre-check)
+        try {
+            $exchangeRate = $this->exchangeRateService->getRate($validated['currency_code']);
+            $amountFiat = $this->exchangeRateService->convert((float) $validated['amount_usdc'], $validated['currency_code']);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => __('trade.error.exchange_rate_unavailable'),
+            ], 422);
+        }
+
         // Dry run: all checks passed, return OK without creating trade
         if ($isDryRun) {
             return response()->json([
                 'message' => __('p2p.trade_checks_passed'),
             ]);
         }
-
-        $exchangeRate = $this->exchangeRateService->getRate($validated['currency_code']);
-        $amountFiat = $this->exchangeRateService->convert((float) $validated['amount_usdc'], $validated['currency_code']);
 
         $isPrivate = $link->type === \App\Enums\TradingLinkType::Private;
 

@@ -107,6 +107,7 @@ return [
         'trade_expired' => 'This trade has expired and can no longer be confirmed.',
         'cannot_self_trade' => 'You cannot trade with your own merchant account.',
         'active_trade_exists' => 'You already have an active trade with this merchant. Please complete or cancel it first.',
+        'exchange_rate_unavailable' => 'Exchange rate is currently unavailable. Please try again later.',
     ],
 
     // Sections
