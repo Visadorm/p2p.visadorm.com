@@ -158,7 +158,7 @@ class TradeController extends Controller
 
         // Prevent buyer from having multiple active trades with same merchant
         $hasActiveTrade = Trade::where('merchant_id', $merchant->id)
-            ->where('buyer_wallet', $buyerWalletAddress)
+            ->whereRaw('LOWER(buyer_wallet) = ?', [$buyerWalletAddress])
             ->whereIn('status', [
                 TradeStatus::Pending,
                 TradeStatus::EscrowLocked,
