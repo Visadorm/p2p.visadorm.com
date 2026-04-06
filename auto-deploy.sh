@@ -6,7 +6,6 @@
 # Only deploys if new changes detected
 # ============================================
 BRANCH="main"
-# v4
 
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
@@ -115,10 +114,3 @@ MSG="<b>Deploy Complete</b>
 
 send_tg "$MSG"
 
-# Send fresh errors from laravel.log
-LAST_ERR=$(grep "ERROR" "$PROJECT_DIR/storage/logs/laravel.log" 2>/dev/null | grep -v "icons" | tail -3 | cut -c1-300)
-if [ -n "$LAST_ERR" ]; then
-    send_tg "Errors: ${LAST_ERR}"
-else
-    send_tg "No errors in log"
-fi

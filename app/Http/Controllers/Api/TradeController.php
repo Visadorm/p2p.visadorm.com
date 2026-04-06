@@ -187,6 +187,14 @@ class TradeController extends Controller
             ], 422);
         }
 
+        // Check merchant has enough escrow balance
+        $canTrade = rescue(fn () => $this->tradeService->getEscrowService()->canInitiateTrade($merchant, (float) $validated['amount_usdc']), true);
+        if (! $canTrade) {
+            return response()->json([
+                'message' => __('trade.error.merchant_insufficient_escrow'),
+            ], 422);
+        }
+
         // Dry run: all checks passed, return OK without creating trade
         if ($isDryRun) {
             return response()->json([

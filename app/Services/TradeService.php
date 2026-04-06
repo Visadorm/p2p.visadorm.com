@@ -23,6 +23,11 @@ class TradeService
         private readonly EscrowService $escrowService,
     ) {}
 
+    public function getEscrowService(): EscrowService
+    {
+        return $this->escrowService;
+    }
+
     /**
      * Create a new trade record after validating escrow availability.
      */
@@ -55,7 +60,7 @@ class TradeService
                 'payment_method' => $data['payment_method'],
                 'type' => $data['type'],
                 'status' => TradeStatus::Pending,
-                'stake_amount' => $data['stake_paid_by'] ? ($data['stake_amount'] ?? $settings->stake_amount) : 0,
+                'stake_amount' => $data['stake_amount'] ?? $settings->stake_amount,
                 'stake_paid_by' => $data['stake_paid_by'] ?? null,
                 'meeting_location' => $data['meeting_location'] ?? null,
                 'meeting_lat' => $data['meeting_lat'] ?? null,

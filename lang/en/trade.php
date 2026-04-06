@@ -108,6 +108,7 @@ return [
         'cannot_self_trade' => 'You cannot trade with your own merchant account.',
         'active_trade_exists' => 'You already have an active trade with this merchant. Please complete or cancel it first.',
         'exchange_rate_unavailable' => 'Exchange rate is currently unavailable. Please try again later.',
+        'merchant_insufficient_escrow' => 'This merchant does not have enough USDC in escrow to cover this trade. Try a smaller amount or contact the merchant.',
     ],
 
     // Sections
