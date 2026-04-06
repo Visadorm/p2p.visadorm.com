@@ -65,9 +65,14 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-# Fix: drop old reviews unique index (allows two-way reviews)
-mysql -u$(grep '^DB_USERNAME=' .env | cut -d'=' -f2) -p$(grep '^DB_PASSWORD=' .env | cut -d'=' -f2) $(grep '^DB_DATABASE=' .env | cut -d'=' -f2) -e "ALTER TABLE reviews DROP INDEX reviews_trade_id_unique;" > /tmp/idx.txt 2>&1 && IDX="DROPPED" || IDX="SKIP"
-send_tg "Index: ${IDX}"
+# Check reviews indexes and ensure composite unique exists
+DB_USER=$(grep '^DB_USERNAME=' .env | cut -d'=' -f2)
+DB_PASS=$(grep '^DB_PASSWORD=' .env | cut -d'=' -f2)
+DB_NAME=$(grep '^DB_DATABASE=' .env | cut -d'=' -f2)
+IDX_LIST=$(mysql -u${DB_USER} -p${DB_PASS} ${DB_NAME} -N -e "SHOW INDEX FROM reviews WHERE Key_name LIKE '%unique%';" 2>/dev/null | awk '{print $3}' | sort -u || echo "QUERY_FAILED")
+# Add composite unique if missing
+mysql -u${DB_USER} -p${DB_PASS} ${DB_NAME} -e "ALTER TABLE reviews ADD UNIQUE INDEX reviews_trade_id_reviewer_role_unique (trade_id, reviewer_role);" 2>/dev/null && IDX_LIST="${IDX_LIST} +COMPOSITE_ADDED" || IDX_LIST="${IDX_LIST} +COMPOSITE_EXISTS"
+send_tg "Reviews indexes: ${IDX_LIST}"
 
 php artisan optimize:clear
 php artisan optimize
