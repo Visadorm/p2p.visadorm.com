@@ -14,7 +14,6 @@ import {
   Handshake,
   CurrencyDollar,
   ShieldCheck,
-  MapPin,
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -134,6 +133,21 @@ export default function TradeStart({ slug }) {
 
     setSubmitting(true)
     try {
+      // Step 0: Pre-check — verify no active trade with this merchant before spending gas
+      try {
+        await api.initiateTrade(slug, {
+          amount_usdc: numAmount,
+          currency_code: currency,
+          payment_method: paymentMethod,
+          dry_run: true,
+        })
+      } catch (preErr) {
+        toast.error(preErr.message || "Cannot initiate trade")
+        setSubmitting(false)
+        setTradeStep("idle")
+        return
+      }
+
       // Step 1: Approve $5 USDC stake for escrow contract (public trades only)
       const isPrivateLink = tradingLink?.type === "private"
       if (usdcAddress && escrowAddress && !isPrivateLink) {
@@ -165,17 +179,15 @@ export default function TradeStart({ slug }) {
 
       // Step 2: Call API to initiate trade (backend locks escrow on-chain)
       setTradeStep("initiating")
-      const selectedPm = paymentMethods.find(m => String(m.id) === paymentMethod) || paymentMethods.find(m => (m.provider || m.label) === paymentMethod)
-      const pmName = selectedPm?.provider || selectedPm?.label || paymentMethod
       const res = await api.initiateTrade(slug, {
         amount_usdc: numAmount,
         currency_code: currency,
-        payment_method: pmName,
+        payment_method: paymentMethod,
       })
       toast.success(res.message || "Trade initiated")
       const tradeHash = res.data?.trade_hash
       if (tradeHash) {
-        const isCashMeeting = selectedPm?.type === "cash_meeting" || pmName.toLowerCase() === "cash meeting"
+        const isCashMeeting = paymentMethod === "cash_meeting" || paymentMethods.find(m => (m.provider || m.label) === paymentMethod)?.type === "cash_meeting"
         router.visit(isCashMeeting ? `/trade/${tradeHash}/meeting` : `/trade/${tradeHash}/confirm`)
       }
     } catch (err) {
@@ -353,41 +365,14 @@ export default function TradeStart({ slug }) {
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.map((m) => {
-                    const uniqueValue = m.id ? String(m.id) : (m.provider || m.label)
-                    const displayName = m.type === "cash_meeting" && m.location
-                      ? `Cash Meeting — ${m.location}`
-                      : (m.label || m.provider)
-                    return (
-                      <SelectItem key={uniqueValue} value={uniqueValue}>
-                        {displayName}
-                      </SelectItem>
-                    )
-                  })}
+                  {paymentMethods.map((m) => (
+                    <SelectItem key={m.id || m.provider || m.label} value={m.provider || m.label}>
+                      {m.label || m.provider}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Cash Meeting Location */}
-            {(() => {
-              const selectedPm = paymentMethods.find(m => String(m.id) === paymentMethod) || paymentMethods.find(m => (m.provider || m.label) === paymentMethod)
-              const isCash = selectedPm?.type === "cash_meeting"
-              if (isCash && selectedPm?.location) {
-                return (
-                  <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-                    <MapPin weight="fill" size={18} className="mt-0.5 shrink-0 text-amber-400" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-400">Meeting Location</p>
-                      <p className="text-sm text-muted-foreground">{selectedPm.location}</p>
-                      {selectedPm.safety_note && (
-                        <p className="mt-1 text-xs text-muted-foreground">{selectedPm.safety_note}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-              return null
-            })()}
 
             {/* Buyer Verification Info */}
             {merchant?.buyer_verification === "required" && (

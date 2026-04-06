@@ -226,6 +226,7 @@ return [
     'insufficient_usdc_balance'   => 'Insufficient USDC balance in your wallet. You have :balance USDC available.',
     'deposit_reverted'            => 'Deposit failed — please check your wallet has enough USDC and you have approved the amount.',
     'withdraw_reverted'           => 'Withdrawal failed — please check your escrow balance and try again.',
+    'trade_checks_passed'         => 'Trade checks passed.',
     'review_buyer_not_merchant'   => 'The buyer does not have a merchant account yet.',
 
 ];

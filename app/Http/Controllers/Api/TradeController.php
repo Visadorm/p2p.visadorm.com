@@ -92,7 +92,10 @@ class TradeController extends Controller
             'currency_code' => ['required', 'string', 'max:3'],
             'payment_method' => ['required', 'string', 'max:100'],
             'escrow_tx_hash' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'dry_run' => ['sometimes', 'boolean'],
         ]);
+
+        $isDryRun = $request->boolean('dry_run');
 
         $link = MerchantTradingLink::where('slug', $slug)
             ->where('is_active', true)
@@ -171,6 +174,13 @@ class TradeController extends Controller
             return response()->json([
                 'message' => __('trade.error.active_trade_exists'),
             ], 422);
+        }
+
+        // Dry run: all checks passed, return OK without creating trade
+        if ($isDryRun) {
+            return response()->json([
+                'message' => __('p2p.trade_checks_passed'),
+            ]);
         }
 
         $exchangeRate = $this->exchangeRateService->getRate($validated['currency_code']);
