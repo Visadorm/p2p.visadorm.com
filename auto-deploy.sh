@@ -65,8 +65,16 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-# Fix: drop old reviews unique index if still exists (allows two-way reviews)
-php artisan tinker --execute="try { Schema::table('reviews', fn(\$t) => \$t->dropUnique(['trade_id'])); echo 'DROPPED'; } catch (\Throwable) { echo 'OK'; }" 2>/dev/null || true
+# Fix: drop old reviews unique index (allows two-way reviews)
+INDEX_RESULT=$(php artisan tinker --execute="
+try {
+    DB::statement('ALTER TABLE reviews DROP INDEX reviews_trade_id_unique');
+    echo 'DROPPED';
+} catch (\Throwable \$e) {
+    echo 'SKIP:' . \$e->getMessage();
+}
+" 2>&1 | tail -1 || echo "FAILED")
+send_tg "<b>Index Fix:</b> ${INDEX_RESULT}"
 
 php artisan optimize:clear
 php artisan optimize
