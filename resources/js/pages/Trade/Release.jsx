@@ -621,25 +621,33 @@ export default function TradeRelease({ tradeHash }) {
           )}
 
           {/* Dispute Evidence Upload */}
-          {tradeStatus === "disputed" && trade?.dispute && (
-            <Card className="border-red-500/30 bg-red-500/5 ring-1 ring-red-500/20">
+          {trade?.dispute && (
+            <Card className={tradeStatus === "disputed" ? "border-red-500/30 bg-red-500/5 ring-1 ring-red-500/20" : "border-border/50"}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base text-red-400">
-                  <Warning weight="fill" size={20} />
-                  Trade Under Dispute — Submit Your Evidence
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Warning weight="fill" size={20} className={tradeStatus === "disputed" ? "text-red-400" : "text-muted-foreground"} />
+                  {tradeStatus === "disputed" ? "Trade Under Dispute — Submit Your Evidence" : `Dispute ${trade.dispute.status?.replace("_", " ") || "Resolved"}`}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
-                    <span className="relative flex size-3 shrink-0">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                      <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
-                    </span>
-                    <p className="text-sm font-medium text-amber-400">
-                      Upload screenshots, receipts, or chat logs to support your case. The admin will review your evidence.
-                    </p>
-                  </div>
+                  {tradeStatus === "disputed" && (
+                    <div className="flex items-center gap-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+                      <span className="relative flex size-3 shrink-0">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
+                      </span>
+                      <p className="text-sm font-medium text-amber-400">
+                        Upload screenshots, receipts, or chat logs to support your case. The admin will review your evidence.
+                      </p>
+                    </div>
+                  )}
+                  {trade.dispute.reason && (
+                    <div className="rounded-lg bg-muted/20 px-3 py-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Dispute Reason</p>
+                      <p className="text-sm">{trade.dispute.reason}</p>
+                    </div>
+                  )}
                   {trade.dispute.evidence && trade.dispute.evidence.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Submitted Evidence ({trade.dispute.evidence.length})</p>
@@ -651,33 +659,37 @@ export default function TradeRelease({ tradeHash }) {
                       ))}
                     </div>
                   )}
-                  <textarea
-                    value={evidenceNote}
-                    onChange={(e) => setEvidenceNote(e.target.value)}
-                    placeholder="Add a note for the admin (explain what happened)..."
-                    rows={2}
-                    maxLength={2000}
-                    className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                  />
-                  <div className="space-y-2">
-                    <Button
-                      size="lg"
-                      className="w-full gap-2 bg-amber-600 text-white hover:bg-amber-700"
-                      disabled={uploadingEvidence}
-                      onClick={() => evidenceInputRef.current?.click()}
-                    >
-                      <FileImage weight="bold" size={18} />
-                      {uploadingEvidence ? "Uploading..." : "Upload Evidence"}
-                    </Button>
-                    <input
-                      ref={evidenceInputRef}
-                      type="file"
-                      accept="image/*,.pdf,.mp4,.webm"
-                      className="hidden"
-                      onChange={(e) => e.target.files?.[0] && handleUploadEvidence(e.target.files[0])}
-                    />
-                    <p className="text-xs text-muted-foreground">JPG, PNG, PDF, MP4 — Max 10MB</p>
-                  </div>
+                  {tradeStatus === "disputed" && (
+                    <>
+                      <textarea
+                        value={evidenceNote}
+                        onChange={(e) => setEvidenceNote(e.target.value)}
+                        placeholder="Add a note for the admin (explain what happened)..."
+                        rows={2}
+                        maxLength={2000}
+                        className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      />
+                      <div className="space-y-2">
+                        <Button
+                          size="lg"
+                          className="w-full gap-2 bg-amber-600 text-white hover:bg-amber-700"
+                          disabled={uploadingEvidence}
+                          onClick={() => evidenceInputRef.current?.click()}
+                        >
+                          <FileImage weight="bold" size={18} />
+                          {uploadingEvidence ? "Uploading..." : "Upload Evidence"}
+                        </Button>
+                        <input
+                          ref={evidenceInputRef}
+                          type="file"
+                          accept="image/*,.pdf,.mp4,.webm"
+                          className="hidden"
+                          onChange={(e) => e.target.files?.[0] && handleUploadEvidence(e.target.files[0])}
+                        />
+                        <p className="text-xs text-muted-foreground">JPG, PNG, PDF, MP4 — Max 10MB</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
