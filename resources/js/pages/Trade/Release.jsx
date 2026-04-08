@@ -622,11 +622,11 @@ export default function TradeRelease({ tradeHash }) {
 
           {/* Dispute Evidence Upload */}
           {trade?.dispute && (
-            <Card className={tradeStatus === "disputed" ? "border-red-500/30 bg-red-500/5 ring-1 ring-red-500/20" : "border-border/50"}>
+            <Card className="border-amber-500/20 bg-amber-500/5">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Warning weight="fill" size={20} className={tradeStatus === "disputed" ? "text-red-400" : "text-muted-foreground"} />
-                  {tradeStatus === "disputed" ? "Trade Under Dispute — Submit Your Evidence" : `Dispute ${trade.dispute.status?.replace("_", " ") || "Resolved"}`}
+                <CardTitle className="flex items-center gap-2 text-base text-amber-400">
+                  <Warning weight="fill" size={20} />
+                  {tradeStatus === "disputed" ? "Trade Under Dispute — Submit Your Evidence" : `Dispute ${(trade.dispute.status || "resolved").replace(/_/g, " ")}`}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -650,13 +650,27 @@ export default function TradeRelease({ tradeHash }) {
                   )}
                   {trade.dispute.evidence && trade.dispute.evidence.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-sm font-medium">Submitted Evidence ({trade.dispute.evidence.length})</p>
-                      {trade.dispute.evidence.map((e, i) => (
-                        <div key={i} className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2">
-                          <span className="text-sm truncate">{e.original_name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0 ml-2">{e.uploaded_at ? new Date(e.uploaded_at).toLocaleDateString() : ""}</span>
-                        </div>
-                      ))}
+                      <p className="text-sm font-medium">Evidence & Notes ({trade.dispute.evidence.length})</p>
+                      {trade.dispute.evidence.map((e, i) => {
+                        const isBuyer = e.uploaded_by && e.uploaded_by.toLowerCase() === trade?.buyer_wallet?.toLowerCase()
+                        const isAdmin = e.uploaded_by === "admin"
+                        const role = isAdmin ? "Admin" : isBuyer ? "Buyer" : "Seller"
+                        const roleColor = isAdmin ? "text-purple-400" : isBuyer ? "text-blue-400" : "text-emerald-400"
+                        return (
+                          <div key={i} className="rounded-lg bg-muted/20 px-3 py-2 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-xs font-semibold ${roleColor}`}>{role}</span>
+                              <span className="text-xs text-muted-foreground">{e.uploaded_at ? new Date(e.uploaded_at).toLocaleDateString() : ""}</span>
+                            </div>
+                            {e.original_name && e.original_name !== "Evidence Request" && (
+                              <p className="text-sm">{e.original_name}</p>
+                            )}
+                            {e.note && (
+                              <p className="text-sm text-muted-foreground">{e.note}</p>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                   {tradeStatus === "disputed" && (
