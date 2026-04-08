@@ -187,7 +187,7 @@ export default function TradeStart({ slug }) {
       toast.success(res.message || "Trade initiated")
       const tradeHash = res.data?.trade_hash
       if (tradeHash) {
-        const isCashMeeting = paymentMethod === "cash_meeting" || paymentMethods.find(m => (m.provider || m.label) === paymentMethod)?.type === "cash_meeting"
+        const isCashMeeting = paymentMethods.find(m => String(m.id) === String(paymentMethod))?.type === "cash_meeting"
         router.visit(isCashMeeting ? `/trade/${tradeHash}/meeting` : `/trade/${tradeHash}/confirm`)
       }
     } catch (err) {
