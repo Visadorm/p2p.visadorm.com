@@ -491,7 +491,7 @@ export default function MerchantProfile({ username }) {
                       <div>
                         <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Bank Accounts</p>
                         <div className="flex flex-wrap gap-2">
-                          {bankMethods.map(m => (
+                          {bankMethods.slice(0, 10).map(m => (
                             <span key={m.name} className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm font-medium">
                               <m.icon weight="duotone" size={18} className="text-muted-foreground" />
                               {m.name}
@@ -505,7 +505,7 @@ export default function MerchantProfile({ username }) {
                       <div>
                         <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Online & Mobile</p>
                         <div className="flex flex-wrap gap-2">
-                          {onlineMethods.map(m => (
+                          {onlineMethods.slice(0, 10).map(m => (
                             <span key={m.name} className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm font-medium">
                               <m.icon weight="duotone" size={18} className="text-muted-foreground" />
                               {m.name}
@@ -519,7 +519,7 @@ export default function MerchantProfile({ username }) {
                       <div>
                         <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">In-Person</p>
                         <div className="flex flex-wrap gap-2">
-                          {cashMethods.map(m => (
+                          {cashMethods.slice(0, 10).map(m => (
                             <span key={m.name} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-400">
                               <m.icon weight="duotone" size={18} />
                               {m.name}
@@ -546,7 +546,7 @@ export default function MerchantProfile({ username }) {
                 </CardHeader>
                 <CardContent>
                   <ol className="space-y-3">
-                    {instructions.map((step, i) => (
+                    {instructions.slice(0, 10).map((step, i) => (
                       <li key={i} className="flex items-start gap-3">
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
                           {i + 1}
@@ -661,7 +661,7 @@ export default function MerchantProfile({ username }) {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {reviews.map((review) => {
+                  {reviews.slice(0, 5).map((review) => {
                     const reviewerDisplay = review.reviewer_wallet
                       ? `${review.reviewer_wallet.slice(0, 4)}***${review.reviewer_wallet.slice(-2)}`
                       : "Anonymous"
@@ -696,6 +696,16 @@ export default function MerchantProfile({ username }) {
                       </Card>
                     )
                   })}
+                  {reviews.length > 5 && (
+                    <div className="mt-4 text-center">
+                      <Link
+                        href={`/merchant/${merchant.username}/reviews`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        View All Reviews ({merchant.review_count})
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

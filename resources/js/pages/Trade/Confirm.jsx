@@ -721,18 +721,24 @@ export default function TradeConfirm({ tradeHash }) {
 
           {/* Dispute Evidence Upload */}
           {tradeStatus === "disputed" && trade?.dispute && (
-            <Card className="border-amber-500/20 bg-amber-500/5">
+            <Card className="border-red-500/30 bg-red-500/5 ring-1 ring-red-500/20">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base text-amber-400">
+                <CardTitle className="flex items-center gap-2 text-base text-red-400">
                   <Warning weight="fill" size={20} />
-                  Trade Under Dispute
+                  Trade Under Dispute — Submit Your Evidence
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    This trade is under review. Upload evidence to support your case (screenshots, receipts, chat logs).
-                  </p>
+                  <div className="flex items-center gap-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+                    <span className="relative flex size-3 shrink-0">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
+                    </span>
+                    <p className="text-sm font-medium text-amber-400">
+                      Upload screenshots, receipts, or chat logs to support your case. The admin will review your evidence.
+                    </p>
+                  </div>
                   {trade.dispute.evidence && trade.dispute.evidence.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Submitted Evidence ({trade.dispute.evidence.length})</p>
@@ -752,14 +758,14 @@ export default function TradeConfirm({ tradeHash }) {
                     maxLength={2000}
                     className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                   />
-                  <div className="flex items-center gap-3">
+                  <div className="space-y-2">
                     <Button
-                      variant="outline"
-                      className="gap-2"
+                      size="lg"
+                      className="w-full gap-2 bg-amber-600 text-white hover:bg-amber-700"
                       disabled={uploadingEvidence}
                       onClick={() => evidenceInputRef.current?.click()}
                     >
-                      <UploadSimple weight="bold" size={16} />
+                      <UploadSimple weight="bold" size={18} />
                       {uploadingEvidence ? "Uploading..." : "Upload Evidence"}
                     </Button>
                     <input

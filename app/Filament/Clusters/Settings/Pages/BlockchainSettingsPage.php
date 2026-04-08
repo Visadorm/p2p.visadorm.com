@@ -46,32 +46,29 @@ class BlockchainSettingsPage extends SettingsPage
                                 'base_sepolia' => __('settings.network.base_sepolia'),
                                 'base_mainnet' => __('settings.network.base_mainnet'),
                             ])
-                            ->required(),
+                            ->disabled(),
                         TextInput::make('rpc_url')
                             ->label(__('settings.network.rpc_url'))
                             ->required()
                             ->url(),
                         TextInput::make('chain_id')
                             ->label(__('settings.network.chain_id'))
-                            ->required()
-                            ->numeric(),
+                            ->disabled(),
                     ])
                     ->columns(2),
 
                 Section::make(__('settings.contracts.title'))
+                    ->description('Contract addresses are set during deployment and cannot be changed here.')
                     ->schema([
                         TextInput::make('trade_escrow_address')
                             ->label(__('settings.contracts.trade_escrow_address'))
-                            ->required()
-                            ->maxLength(42),
+                            ->disabled(),
                         TextInput::make('soulbound_nft_address')
                             ->label(__('settings.contracts.soulbound_nft_address'))
-                            ->required()
-                            ->maxLength(42),
+                            ->disabled(),
                         TextInput::make('usdc_address')
                             ->label(__('settings.contracts.usdc_address'))
-                            ->required()
-                            ->maxLength(42),
+                            ->disabled(),
                     ])
                     ->columns(2),
 
@@ -79,8 +76,7 @@ class BlockchainSettingsPage extends SettingsPage
                     ->schema([
                         TextInput::make('gas_wallet_address')
                             ->label(__('settings.gas.gas_wallet_address'))
-                            ->required()
-                            ->maxLength(42),
+                            ->disabled(),
                         TextInput::make('min_gas_balance')
                             ->label(__('settings.gas.min_gas_balance'))
                             ->required()
@@ -89,15 +85,14 @@ class BlockchainSettingsPage extends SettingsPage
                     ->columns(2),
 
                 Section::make(__('settings.multisig.title'))
+                    ->description('Wallet addresses are set during deployment and cannot be changed here.')
                     ->schema([
                         TextInput::make('fee_wallet_address')
                             ->label(__('settings.multisig.fee_wallet_address'))
-                            ->required()
-                            ->maxLength(42),
+                            ->disabled(),
                         TextInput::make('admin_multisig_address')
                             ->label(__('settings.multisig.admin_multisig_address'))
-                            ->required()
-                            ->maxLength(42),
+                            ->disabled(),
                     ])
                     ->columns(2),
             ]);

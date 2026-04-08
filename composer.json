@@ -21,7 +21,6 @@
         "laravel/tinker": "^3.0",
         "leandrocfe/filament-apex-charts": "^5.0",
         "spatie/laravel-settings": "^3.7",
-        "spykapps/theme-aberdeen": "^1.0",
         "tightenco/ziggy": "^2.0",
         "twilio/sdk": "^8.11"
     },
@@ -96,16 +95,6 @@
             "php-http/discovery": true
         }
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "./packages/leandrocfe/filament-apex-charts",
-            "canonical": false,
-            "options": {
-                "symlink": true
-            }
-        }
-    ],
     "minimum-stability": "dev",
     "prefer-stable": true
 }

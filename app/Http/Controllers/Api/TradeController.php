@@ -230,6 +230,7 @@ class TradeController extends Controller
             'buyer_wallet' => $request->user()->wallet_address,
             'trading_link_id' => $link->id,
             'type' => TradeType::Buy,
+            'stake_amount' => $isPrivate ? 0 : null,
             'stake_paid_by' => $isPrivate ? null : \App\Enums\StakePaidBy::Buyer,
             'escrow_tx_hash' => $validated['escrow_tx_hash'] ?? null,
             'meeting_location' => $meetingLocation,

@@ -36,20 +36,21 @@ class ViewDispute extends ViewRecord
                     $record = $this->record;
                     $trade = $record->trade;
 
-                    try {
-                        if ($trade) {
+                    // Only call blockchain if trade was initiated on-chain
+                    if ($trade && $trade->escrow_tx_hash) {
+                        try {
                             app(BlockchainService::class)->resolveDispute(
                                 $trade->trade_hash,
                                 $trade->buyer_wallet,
                             );
+                        } catch (\Throwable $e) {
+                            Log::error('Dispute resolve blockchain error (buyer)', [
+                                'dispute_id' => $record->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                            Notification::make()->title('Blockchain error: ' . $e->getMessage())->danger()->send();
+                            return;
                         }
-                    } catch (\Throwable $e) {
-                        Log::error('Dispute resolve blockchain error (buyer)', [
-                            'dispute_id' => $record->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                        Notification::make()->title('Blockchain error: ' . $e->getMessage())->danger()->send();
-                        return;
                     }
 
                     $record->update([
@@ -89,20 +90,21 @@ class ViewDispute extends ViewRecord
                     $record = $this->record;
                     $trade = $record->trade;
 
-                    try {
-                        if ($trade) {
+                    // Only call blockchain if trade was initiated on-chain
+                    if ($trade && $trade->escrow_tx_hash) {
+                        try {
                             app(BlockchainService::class)->resolveDispute(
                                 $trade->trade_hash,
                                 $trade->merchant->wallet_address,
                             );
+                        } catch (\Throwable $e) {
+                            Log::error('Dispute resolve blockchain error (merchant)', [
+                                'dispute_id' => $record->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                            Notification::make()->title('Blockchain error: ' . $e->getMessage())->danger()->send();
+                            return;
                         }
-                    } catch (\Throwable $e) {
-                        Log::error('Dispute resolve blockchain error (merchant)', [
-                            'dispute_id' => $record->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                        Notification::make()->title('Blockchain error: ' . $e->getMessage())->danger()->send();
-                        return;
                     }
 
                     $record->update([
@@ -153,6 +155,77 @@ class ViewDispute extends ViewRecord
 
                     $this->refreshFormData(['resolution_notes']);
                 }),
+
+            Action::make('request_evidence')
+                ->label('Request Evidence')
+                ->icon('heroicon-o-envelope')
+                ->color('warning')
+                ->form([
+                    \Filament\Forms\Components\Select::make('recipient')
+                        ->label('Send To')
+                        ->options([
+                            'buyer' => 'Buyer',
+                            'seller' => 'Seller',
+                            'both' => 'Both',
+                        ])
+                        ->required(),
+                    Textarea::make('message')
+                        ->label('Message')
+                        ->placeholder('Please provide additional evidence such as...')
+                        ->required()
+                        ->maxLength(2000),
+                ])
+                ->action(function (array $data): void {
+                    $record = $this->record;
+                    $trade = $record->trade;
+                    $admin = auth()->user()?->email ?? 'Admin';
+                    $timestamp = now()->format('M d, Y H:i');
+
+                    // Store as admin note
+                    $existing = $record->resolution_notes ?? '';
+                    $newNote = "[{$timestamp} — {$admin}] Evidence requested from {$data['recipient']}: {$data['message']}";
+                    $record->update([
+                        'resolution_notes' => $existing ? $existing . "\n\n" . $newNote : $newNote,
+                    ]);
+
+                    // Store in evidence array so it shows on frontend
+                    $evidence = $record->evidence ?? [];
+                    $evidence[] = [
+                        'uploaded_by' => 'admin',
+                        'note' => "Admin request ({$data['recipient']}): {$data['message']}",
+                        'uploaded_at' => now()->toISOString(),
+                        'original_name' => 'Evidence Request',
+                    ];
+                    $record->update(['evidence' => $evidence]);
+
+                    // Send Filament notification to the merchant (seller)
+                    if (in_array($data['recipient'], ['seller', 'both']) && $trade?->merchant) {
+                        $sellerUser = \App\Models\User::where('wallet_address', $trade->merchant->wallet_address)->first();
+                        if ($sellerUser) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Evidence Requested')
+                                ->body("Admin requests additional evidence for dispute on trade #{$trade->trade_hash}: {$data['message']}")
+                                ->warning()
+                                ->sendToDatabase($sellerUser);
+                        }
+                    }
+
+                    // Send Filament notification to the buyer
+                    if (in_array($data['recipient'], ['buyer', 'both']) && $trade) {
+                        $buyerUser = \App\Models\User::where('wallet_address', $trade->buyer_wallet)->first();
+                        if ($buyerUser) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Evidence Requested')
+                                ->body("Admin requests additional evidence for dispute on trade #{$trade->trade_hash}: {$data['message']}")
+                                ->warning()
+                                ->sendToDatabase($buyerUser);
+                        }
+                    }
+
+                    Notification::make()->title('Evidence request sent')->success()->send();
+                    $this->refreshFormData(['resolution_notes']);
+                })
+                ->hidden(fn () => $this->record->status !== \App\Enums\DisputeStatus::Open),
         ];
     }
 }
