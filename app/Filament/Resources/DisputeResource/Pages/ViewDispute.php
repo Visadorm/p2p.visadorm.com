@@ -203,54 +203,45 @@ class ViewDispute extends ViewRecord
 
                     // Send to seller
                     if (in_array($data['recipient'], ['seller', 'both']) && $trade?->merchant) {
-                        $sellerUser = \App\Models\User::where('wallet_address', $trade->merchant->wallet_address)->first();
-                        if ($sellerUser) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Evidence Requested — You are the Seller')
-                                ->body("Admin needs more evidence from you for trade {$tradeShort}. {$data['message']}")
-                                ->warning()
-                                ->actions([
-                                    \Filament\Notifications\Actions\Action::make('view_trade')
-                                        ->label('View Trade')
-                                        ->url("/trade/{$trade->trade_hash}/release")
-                                        ->openUrlInNewTab(),
-                                ])
-                                ->sendToDatabase($sellerUser);
+                        // P2P notification (shows in frontend notification bell)
+                        app(\App\Services\NotificationService::class)->create(
+                            $trade->merchant,
+                            'new_dispute',
+                            'Evidence Requested — You are the Seller',
+                            "Admin needs more evidence from you: {$data['message']}",
+                            $trade->id,
+                        );
 
-                            // Email to seller
-                            if ($trade->merchant->email && $trade->merchant->notify_email) {
-                                rescue(fn () => \Illuminate\Support\Facades\Mail::raw(
-                                    "Hello Seller,\n\nThe admin has requested additional evidence from you regarding trade {$tradeShort}.\n\nAdmin message: {$data['message']}\n\nPlease log in and submit your evidence: {$tradeUrl}\n\n— Visadorm P2P",
-                                    fn ($m) => $m->to($trade->merchant->email)->subject('[Visadorm] Evidence Requested — Trade Dispute')
-                                ));
-                            }
+                        // Email to seller
+                        if ($trade->merchant->email && $trade->merchant->notify_email) {
+                            rescue(fn () => \Illuminate\Support\Facades\Mail::raw(
+                                "Hello Seller,\n\nThe admin has requested additional evidence from you regarding trade {$tradeShort}.\n\nAdmin message: {$data['message']}\n\nPlease log in and submit your evidence: {$tradeUrl}\n\n— Visadorm P2P",
+                                fn ($m) => $m->to($trade->merchant->email)->subject('[Visadorm] Evidence Requested — Trade Dispute')
+                            ));
                         }
                     }
 
                     // Send to buyer
                     if (in_array($data['recipient'], ['buyer', 'both']) && $trade) {
-                        $buyerUser = \App\Models\User::where('wallet_address', $trade->buyer_wallet)->first();
                         $buyerMerchant = \App\Models\Merchant::where('wallet_address', $trade->buyer_wallet)->first();
-                        if ($buyerUser) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Evidence Requested — You are the Buyer')
-                                ->body("Admin needs more evidence from you for trade {$tradeShort}. {$data['message']}")
-                                ->warning()
-                                ->actions([
-                                    \Filament\Notifications\Actions\Action::make('view_trade')
-                                        ->label('View Trade')
-                                        ->url("/trade/{$trade->trade_hash}/confirm")
-                                        ->openUrlInNewTab(),
-                                ])
-                                ->sendToDatabase($buyerUser);
 
-                            // Email to buyer
-                            if ($buyerMerchant?->email && $buyerMerchant->notify_email) {
-                                rescue(fn () => \Illuminate\Support\Facades\Mail::raw(
-                                    "Hello Buyer,\n\nThe admin has requested additional evidence from you regarding trade {$tradeShort}.\n\nAdmin message: {$data['message']}\n\nPlease log in and submit your evidence: {$tradeUrl}\n\n— Visadorm P2P",
-                                    fn ($m) => $m->to($buyerMerchant->email)->subject('[Visadorm] Evidence Requested — Trade Dispute')
-                                ));
-                            }
+                        // P2P notification (shows in frontend notification bell)
+                        if ($buyerMerchant) {
+                            app(\App\Services\NotificationService::class)->create(
+                                $buyerMerchant,
+                                'new_dispute',
+                                'Evidence Requested — You are the Buyer',
+                                "Admin needs more evidence from you: {$data['message']}",
+                                $trade->id,
+                            );
+                        }
+
+                        // Email to buyer
+                        if ($buyerMerchant?->email && $buyerMerchant->notify_email) {
+                            rescue(fn () => \Illuminate\Support\Facades\Mail::raw(
+                                "Hello Buyer,\n\nThe admin has requested additional evidence from you regarding trade {$tradeShort}.\n\nAdmin message: {$data['message']}\n\nPlease log in and submit your evidence: {$tradeUrl}\n\n— Visadorm P2P",
+                                fn ($m) => $m->to($buyerMerchant->email)->subject('[Visadorm] Evidence Requested — Trade Dispute')
+                            ));
                         }
                     }
 
