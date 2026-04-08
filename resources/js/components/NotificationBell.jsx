@@ -88,6 +88,9 @@ export default function NotificationBell() {
           ) : (
             notifications.map((notif) => {
               const Icon = TYPE_ICONS[notif.type] || Bell
+              const tradeHash = notif.trade?.trade_hash
+              const isCash = tradeHash && ["cash_meeting", "cash meeting"].includes((notif.trade?.payment_method || "").toLowerCase())
+              const tradeUrl = tradeHash ? (isCash ? `/trade/${tradeHash}/meeting` : `/trade/${tradeHash}/confirm`) : null
               return (
                 <DropdownMenuItem
                   key={notif.id}
@@ -96,6 +99,10 @@ export default function NotificationBell() {
                   }`}
                   onClick={() => {
                     if (!notif.is_read) markRead(notif.id)
+                    if (tradeUrl) {
+                      setOpen(false)
+                      window.location.href = tradeUrl
+                    }
                   }}
                 >
                   <div className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
