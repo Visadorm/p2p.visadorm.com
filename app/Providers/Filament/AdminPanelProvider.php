@@ -26,8 +26,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Leandrocfe\FilamentApexCharts\FilamentApexChartsPlugin;
-use SpyApp\ThemeAberdeen\ThemeAberdeenPlugin;
-
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -38,7 +36,6 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
             ->brandName($settings?->site_name ?: 'Visadorm P2P')
             ->colors([
@@ -69,7 +66,6 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-shield-check'),
             ])
             ->plugins([
-                ThemeAberdeenPlugin::make(),
                 FilamentApexChartsPlugin::make(),
             ])
             ->navigationGroups([
