@@ -200,6 +200,7 @@ export default function MerchantProfile({ username }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedAmount, setSelectedAmount] = useState(null)
+  const [showAllReviews, setShowAllReviews] = useState(false)
   const [cashPage, setCashPage] = useState(0)
   const [customAmount, setCustomAmount] = useState("")
   const [currency, setCurrency] = useState("")
@@ -661,7 +662,7 @@ export default function MerchantProfile({ username }) {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {reviews.slice(0, 5).map((review) => {
+                  {(showAllReviews ? reviews : reviews.slice(0, 5)).map((review) => {
                     const reviewerDisplay = review.reviewer_wallet
                       ? `${review.reviewer_wallet.slice(0, 4)}***${review.reviewer_wallet.slice(-2)}`
                       : "Anonymous"
@@ -696,14 +697,24 @@ export default function MerchantProfile({ username }) {
                       </Card>
                     )
                   })}
-                  {reviews.length > 5 && (
+                  {reviews.length > 5 && !showAllReviews && (
                     <div className="mt-4 text-center">
-                      <Link
-                        href={`/merchant/${merchant.username}/reviews`}
+                      <button
+                        onClick={() => setShowAllReviews(true)}
                         className="text-sm font-medium text-primary hover:underline"
                       >
-                        View All Reviews ({merchant.review_count})
-                      </Link>
+                        Show All Reviews ({merchant.review_count})
+                      </button>
+                    </div>
+                  )}
+                  {showAllReviews && reviews.length > 5 && (
+                    <div className="mt-4 text-center">
+                      <button
+                        onClick={() => setShowAllReviews(false)}
+                        className="text-sm font-medium text-muted-foreground hover:underline"
+                      >
+                        Show Less
+                      </button>
                     </div>
                   )}
                 </div>
