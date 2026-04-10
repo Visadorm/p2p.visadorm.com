@@ -323,26 +323,20 @@ class TradeController extends Controller
         $data['payment_method_label'] = $paymentMethod?->label;
         $data['safety_note'] = $paymentMethod?->safety_note;
 
-        // Show masked merchant identity for verified merchants (seller → buyer)
+        // Show merchant identity for verified merchants (seller → buyer)
         $m = $trade->merchant;
         if ($m->kyc_status?->value === 'approved' && $m->full_name) {
-            $parts = explode(' ', $m->full_name, 2);
-            $first = $parts[0] ?? '';
-            $last = isset($parts[1]) ? strtoupper(substr($parts[1], 0, 1)) . str_repeat('*', max(0, strlen($parts[1]) - 1)) : '';
-            $data['merchant_verified_name'] = trim($first . ' ' . $last);
+            $data['merchant_verified_name'] = $m->full_name;
             if ($m->business_name) {
                 $data['merchant_business_name'] = $m->business_name;
             }
         }
 
-        // Show masked buyer identity for verified buyers (buyer → seller)
+        // Show buyer identity for verified buyers (buyer → seller)
         if ($isMerchant) {
             $buyerMerchant = \App\Models\Merchant::where('wallet_address', $trade->buyer_wallet)->first();
             if ($buyerMerchant && $buyerMerchant->kyc_status?->value === 'approved' && $buyerMerchant->full_name) {
-                $parts = explode(' ', $buyerMerchant->full_name, 2);
-                $first = $parts[0] ?? '';
-                $last = isset($parts[1]) ? strtoupper(substr($parts[1], 0, 1)) . str_repeat('*', max(0, strlen($parts[1]) - 1)) : '';
-                $data['buyer_verified_name'] = trim($first . ' ' . $last);
+                $data['buyer_verified_name'] = $buyerMerchant->full_name;
                 if ($buyerMerchant->business_name) {
                     $data['buyer_business_name'] = $buyerMerchant->business_name;
                 }

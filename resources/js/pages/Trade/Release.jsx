@@ -61,7 +61,11 @@ export default function TradeRelease({ tradeHash }) {
   const fetchTrade = useCallback(async () => {
     try {
       const res = await api.getMerchantTradeDetail(tradeHash)
-      const tradeData = res.data.trade || res.data
+      const tradeData = {
+        ...(res.data.trade || res.data),
+        buyer_verified_name: res.data.buyer_verified_name,
+        buyer_business_name: res.data.buyer_business_name,
+      }
       setTrade(tradeData)
       return tradeData
     } catch {
