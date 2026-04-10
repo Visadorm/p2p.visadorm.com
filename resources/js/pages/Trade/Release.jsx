@@ -63,6 +63,7 @@ export default function TradeRelease({ tradeHash }) {
       const res = await api.getMerchantTradeDetail(tradeHash)
       const tradeData = {
         ...(res.data.trade || res.data),
+        buyer_username: res.data.buyer_username,
         buyer_verified_name: res.data.buyer_verified_name,
         buyer_business_name: res.data.buyer_business_name,
       }
@@ -335,8 +336,8 @@ export default function TradeRelease({ tradeHash }) {
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Merchant</span>
-                  <span className="text-sm font-semibold">{merchantName}</span>
+                  <span className="text-sm text-muted-foreground">Buyer</span>
+                  <span className="text-sm font-semibold">{trade?.buyer_username || truncatedWallet}</span>
                 </div>
               </div>
             </CardContent>

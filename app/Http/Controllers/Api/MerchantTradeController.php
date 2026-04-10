@@ -96,12 +96,15 @@ class MerchantTradeController extends Controller
             'has_buyer_id' => ! empty($trade->buyer_id_path),
         ];
 
-        // Show buyer's verified name to seller (if buyer has KYC approved)
+        // Show buyer info to seller
         $buyerMerchant = \App\Models\Merchant::where('wallet_address', $trade->buyer_wallet)->first();
-        if ($buyerMerchant && $buyerMerchant->kyc_status?->value === 'approved' && $buyerMerchant->full_name) {
-            $data['buyer_verified_name'] = $buyerMerchant->full_name;
-            if ($buyerMerchant->business_name) {
-                $data['buyer_business_name'] = $buyerMerchant->business_name;
+        if ($buyerMerchant) {
+            $data['buyer_username'] = $buyerMerchant->username;
+            if ($buyerMerchant->kyc_status?->value === 'approved' && $buyerMerchant->full_name) {
+                $data['buyer_verified_name'] = $buyerMerchant->full_name;
+                if ($buyerMerchant->business_name) {
+                    $data['buyer_business_name'] = $buyerMerchant->business_name;
+                }
             }
         }
 
