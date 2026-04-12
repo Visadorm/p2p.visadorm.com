@@ -85,7 +85,10 @@ class TradeService
      */
     public function markPaymentSent(Trade $trade): void
     {
-        $trade->update(['status' => TradeStatus::PaymentSent]);
+        $trade->update([
+            'status' => TradeStatus::PaymentSent,
+            'expires_at' => null,
+        ]);
 
         PaymentMarked::dispatch($trade);
 

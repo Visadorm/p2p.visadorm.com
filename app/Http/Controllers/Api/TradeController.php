@@ -539,12 +539,6 @@ class TradeController extends Controller
             ], 422);
         }
 
-        if ($trade->expires_at && $trade->expires_at->isPast()) {
-            return response()->json([
-                'message' => __('trade.error.trade_expired'),
-            ], 422);
-        }
-
         $this->tradeService->confirmPayment($trade);
 
         // Dispatch async blockchain job (escrow release + NFT burn)
