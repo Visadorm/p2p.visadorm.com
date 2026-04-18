@@ -77,9 +77,8 @@ return [
         'fast_responder_minutes' => 'Fast Responder Threshold (minutes)',
     ],
 
-    'dispute' => [
-        'title' => 'Dispute',
-        'dispute_window_hours' => 'Dispute Window (hours)',
+    'cleanup' => [
+        'title' => 'Trade Cleanup',
         'trade_expiry_cleanup_minutes' => 'Trade Expiry Cleanup Interval (minutes)',
     ],
 

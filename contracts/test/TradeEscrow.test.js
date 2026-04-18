@@ -587,6 +587,66 @@ describe("TradeEscrowContract", function () {
         .to.emit(escrow, "DisputeOpened");
     });
 
+    // ─── Dispute Finality (strict state-based escrow model) ───
+    it("openDispute reverts on Completed trade (strict finality)", async function () {
+      const { escrow, operator, buyer, id } =
+        await loadFixture(tradeInitiatedFixture);
+
+      await escrow.connect(operator).markPaymentSent(id);
+      await escrow.connect(operator).confirmPayment(id);
+
+      await expect(
+        escrow.connect(operator).openDispute(id, buyer.address)
+      ).to.be.revertedWith("Invalid trade status");
+    });
+
+    it("openDispute reverts on Cancelled trade", async function () {
+      const { escrow, operator, buyer, id } =
+        await loadFixture(tradeInitiatedFixture);
+
+      await escrow.connect(operator).cancelTrade(id);
+
+      await expect(
+        escrow.connect(operator).openDispute(id, buyer.address)
+      ).to.be.revertedWith("Invalid trade status");
+    });
+
+    it("confirmPayment reverts on Disputed trade (no release while in dispute)", async function () {
+      const { escrow, operator, buyer, id } =
+        await loadFixture(tradeInitiatedFixture);
+
+      await escrow.connect(operator).markPaymentSent(id);
+      await escrow.connect(operator).openDispute(id, buyer.address);
+
+      await expect(
+        escrow.connect(operator).confirmPayment(id)
+      ).to.be.revertedWith("Invalid trade status");
+    });
+
+    it("cancelTrade reverts on Disputed trade", async function () {
+      const { escrow, operator, buyer, id } =
+        await loadFixture(tradeInitiatedFixture);
+
+      await escrow.connect(operator).markPaymentSent(id);
+      await escrow.connect(operator).openDispute(id, buyer.address);
+
+      await expect(
+        escrow.connect(operator).cancelTrade(id)
+      ).to.be.revertedWith("Can only cancel before payment is sent");
+    });
+
+    it("resolveDispute reverts on Completed trade", async function () {
+      const { escrow, operator, admin, buyer, id } =
+        await loadFixture(tradeInitiatedFixture);
+
+      await escrow.connect(operator).markPaymentSent(id);
+      await escrow.connect(operator).confirmPayment(id);
+
+      await expect(
+        escrow.connect(admin).resolveDispute(id, buyer.address)
+      ).to.be.revertedWith("Trade not in dispute");
+    });
+
     it("resolveDispute sends full amount to winner, fee from merchant escrow", async function () {
       const { escrow, usdc, operator, admin, merchant, buyer, feeWallet, id, tradeAmount } =
         await loadFixture(tradeInitiatedFixture);

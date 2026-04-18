@@ -17,8 +17,7 @@ return new class extends SettingsMigration
         $this->migrator->add('trade.liquidity_badge_threshold', 1000.0);
         $this->migrator->add('trade.fast_responder_minutes', 5);
 
-        // Dispute
-        $this->migrator->add('trade.dispute_window_hours', 24);
+        // Cleanup
         $this->migrator->add('trade.trade_expiry_cleanup_minutes', 15);
 
         // Buyer Verification

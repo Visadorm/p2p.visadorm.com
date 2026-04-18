@@ -32,7 +32,6 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant STAKE_AMOUNT = 5e6; // $5 USDC (6 decimals)
     uint256 public constant MIN_TRADE_AMOUNT = 10e6; // $10 minimum (6 decimals)
-    uint256 public constant DISPUTE_WINDOW = 24 hours;
 
     // ─── Immutables ───
     IERC20 public immutable usdcToken;
@@ -40,6 +39,9 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
     SoulboundTradeNFT public immutable tradeNFT;
 
     // ─── Enums ───
+    // Terminal states (no further transitions allowed): Completed, Cancelled, Resolved.
+    // Disputes are only permitted while funds are held in escrow (EscrowLocked or PaymentSent).
+    // Once a trade reaches Completed, the contract permanently rejects any further action.
     enum TradeStatus {
         None,
         EscrowLocked,
@@ -277,7 +279,11 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
     // ─── Disputes ───
 
     /**
-     * @dev Open a dispute on a trade.
+     * @dev Open a dispute on a trade. State-based enforcement:
+     *      Disputes are only permitted while USDC is still held in escrow
+     *      (EscrowLocked or PaymentSent). Once a trade is Completed, Cancelled,
+     *      or Resolved, it is terminal and this function reverts. There is no
+     *      post-completion dispute window — finality is on-chain and immediate.
      */
     function openDispute(
         bytes32 tradeId,

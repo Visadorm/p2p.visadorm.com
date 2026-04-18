@@ -70,6 +70,38 @@ php artisan optimize
 php artisan filament:optimize
 php artisan queue:restart
 
+# ============================================================
+# BEGIN ONE-SHOT — Strict Escrow Redeployment (2026-04-18)
+# Updates blockchain_settings to new contract addresses deployed
+# on Base Sepolia. Idempotent via marker file. REMOVE THIS BLOCK
+# ON NEXT PUSH after Telegram confirms "ONE-SHOT: ran successfully".
+# ============================================================
+ONESHOT_MARKER="$PROJECT_DIR/storage/.oneshot-2026-04-18-strict-escrow"
+ONESHOT_STATUS="Skipped"
+if [ ! -f "$ONESHOT_MARKER" ]; then
+    echo "Running one-shot: update blockchain_settings to new addresses..."
+    ONESHOT_OUTPUT=$(php artisan tinker --execute="
+\$s = app(\App\Settings\BlockchainSettings::class);
+\$s->trade_escrow_address = '0xc4D74Ddcc4ee8DFa9687C37De8be3A21f813C00D';
+\$s->soulbound_nft_address = '0xD81a5b95550E94C7ec995af6BaaD4ab7281B5FFD';
+\$s->usdc_address = '0xe3B1038eecea95053256D0e5d52D11A0703D1c4F';
+\$s->save();
+echo 'ok';
+" 2>&1)
+    echo "$ONESHOT_OUTPUT"
+    if echo "$ONESHOT_OUTPUT" | grep -q "ok"; then
+        touch "$ONESHOT_MARKER"
+        ONESHOT_STATUS="Ran"
+        php artisan optimize:clear
+        php artisan optimize
+    else
+        ONESHOT_STATUS="Failed"
+    fi
+fi
+# ============================================================
+# END ONE-SHOT — Strict Escrow Redeployment
+# ============================================================
+
 chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
 
@@ -109,6 +141,7 @@ MSG="<b>Deploy Complete</b>
 <b>Commit:</b> <code>${COMMIT_SHORT}</code> ${COMMIT_MSG}
 <b>Files:</b> ${FILES_CHANGED} changed
 <b>Migration:</b> ${MIGRATE_STATUS}
+<b>One-Shot:</b> ${ONESHOT_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 

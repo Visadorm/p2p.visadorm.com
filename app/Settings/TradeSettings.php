@@ -17,8 +17,7 @@ class TradeSettings extends Settings
     public float $liquidity_badge_threshold;
     public int $fast_responder_minutes;
 
-    // Dispute
-    public int $dispute_window_hours;
+    // Cleanup
     public int $trade_expiry_cleanup_minutes;
 
     // Buyer Verification

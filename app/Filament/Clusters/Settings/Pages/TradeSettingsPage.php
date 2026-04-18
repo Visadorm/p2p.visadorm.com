@@ -77,15 +77,10 @@ class TradeSettingsPage extends SettingsPage
                     ])
                     ->columns(2),
 
-                Section::make(__('settings.dispute.title'))
+                Section::make(__('settings.cleanup.title'))
                     ->schema([
-                        TextInput::make('dispute_window_hours')
-                            ->label(__('settings.dispute.dispute_window_hours'))
-                            ->required()
-                            ->numeric()
-                            ->minValue(1),
                         TextInput::make('trade_expiry_cleanup_minutes')
-                            ->label(__('settings.dispute.trade_expiry_cleanup_minutes'))
+                            ->label(__('settings.cleanup.trade_expiry_cleanup_minutes'))
                             ->required()
                             ->numeric()
                             ->minValue(1),
