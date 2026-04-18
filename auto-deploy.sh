@@ -70,79 +70,6 @@ php artisan optimize
 php artisan filament:optimize
 php artisan queue:restart
 
-# ============================================================
-# BEGIN ONE-SHOT — Strict Escrow Redeployment (2026-04-18)
-# Updates blockchain_settings to new contract addresses deployed
-# on Base Sepolia. Idempotent via marker file. REMOVE THIS BLOCK
-# ON NEXT PUSH after Telegram confirms "ONE-SHOT: ran successfully".
-# ============================================================
-ONESHOT_MARKER="$PROJECT_DIR/storage/.oneshot-2026-04-18-strict-escrow"
-ONESHOT_STATUS="Skipped"
-if [ ! -f "$ONESHOT_MARKER" ]; then
-    echo "Running one-shot: update blockchain_settings to new addresses..."
-    ONESHOT_OUTPUT=$(php artisan tinker --execute="
-\$s = app(\App\Settings\BlockchainSettings::class);
-\$s->trade_escrow_address = '0xc4D74Ddcc4ee8DFa9687C37De8be3A21f813C00D';
-\$s->soulbound_nft_address = '0xD81a5b95550E94C7ec995af6BaaD4ab7281B5FFD';
-\$s->usdc_address = '0xe3B1038eecea95053256D0e5d52D11A0703D1c4F';
-\$s->save();
-echo 'ok';
-" 2>&1)
-    echo "$ONESHOT_OUTPUT"
-    if echo "$ONESHOT_OUTPUT" | grep -q "ok"; then
-        touch "$ONESHOT_MARKER"
-        ONESHOT_STATUS="Ran"
-        php artisan optimize:clear
-        php artisan optimize
-    else
-        ONESHOT_STATUS="Failed"
-    fi
-fi
-# ============================================================
-# END ONE-SHOT — Strict Escrow Redeployment
-# ============================================================
-
-# ============================================================
-# BEGIN ONE-SHOT — Settings Migration (2026-04-18 v2)
-# Explicitly runs settings migrations + drops orphan
-# dispute_window_hours row if present. Idempotent via marker.
-# REMOVE THIS BLOCK ON NEXT PUSH after Telegram confirms "Ran".
-# ============================================================
-SETTINGS_MARKER="$PROJECT_DIR/storage/.oneshot-2026-04-18-settings-migration"
-SETTINGS_STATUS="Skipped"
-if [ ! -f "$SETTINGS_MARKER" ]; then
-    echo "Running one-shot v2: settings migrations + dispute_window_hours cleanup..."
-    php artisan migrate --force --no-interaction --path=database/settings 2>&1 | tail -20
-    SETTINGS_OUTPUT=$(php artisan tinker --execute="
-try {
-    \$repo = app(\Spatie\LaravelSettings\Migrations\SettingsMigrator::class);
-    if (method_exists(\$repo, 'deleteIfExists')) {
-        \$repo->deleteIfExists('trade.dispute_window_hours');
-    }
-    \$s = app(\App\Settings\TradeSettings::class);
-    if (property_exists(\$s, 'dispute_window_hours')) {
-        echo 'PROP-STILL-DECLARED';
-    } else {
-        echo 'ok';
-    }
-} catch (\Throwable \$e) {
-    echo 'ERR: ' . \$e->getMessage();
-}
-" 2>&1)
-    echo "$SETTINGS_OUTPUT"
-    if echo "$SETTINGS_OUTPUT" | grep -q "^ok"; then
-        touch "$SETTINGS_MARKER"
-        SETTINGS_STATUS="Ran"
-        php artisan optimize:clear
-        php artisan optimize
-    else
-        SETTINGS_STATUS="Failed"
-    fi
-fi
-# ============================================================
-# END ONE-SHOT — Settings Migration
-# ============================================================
-
 chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
 
@@ -182,8 +109,6 @@ MSG="<b>Deploy Complete</b>
 <b>Commit:</b> <code>${COMMIT_SHORT}</code> ${COMMIT_MSG}
 <b>Files:</b> ${FILES_CHANGED} changed
 <b>Migration:</b> ${MIGRATE_STATUS}
-<b>One-Shot:</b> ${ONESHOT_STATUS}
-<b>Settings:</b> ${SETTINGS_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 
