@@ -102,6 +102,47 @@ fi
 # END ONE-SHOT — Strict Escrow Redeployment
 # ============================================================
 
+# ============================================================
+# BEGIN ONE-SHOT — Settings Migration (2026-04-18 v2)
+# Explicitly runs settings migrations + drops orphan
+# dispute_window_hours row if present. Idempotent via marker.
+# REMOVE THIS BLOCK ON NEXT PUSH after Telegram confirms "Ran".
+# ============================================================
+SETTINGS_MARKER="$PROJECT_DIR/storage/.oneshot-2026-04-18-settings-migration"
+SETTINGS_STATUS="Skipped"
+if [ ! -f "$SETTINGS_MARKER" ]; then
+    echo "Running one-shot v2: settings migrations + dispute_window_hours cleanup..."
+    php artisan migrate --force --no-interaction --path=database/settings 2>&1 | tail -20
+    SETTINGS_OUTPUT=$(php artisan tinker --execute="
+try {
+    \$repo = app(\Spatie\LaravelSettings\Migrations\SettingsMigrator::class);
+    if (method_exists(\$repo, 'deleteIfExists')) {
+        \$repo->deleteIfExists('trade.dispute_window_hours');
+    }
+    \$s = app(\App\Settings\TradeSettings::class);
+    if (property_exists(\$s, 'dispute_window_hours')) {
+        echo 'PROP-STILL-DECLARED';
+    } else {
+        echo 'ok';
+    }
+} catch (\Throwable \$e) {
+    echo 'ERR: ' . \$e->getMessage();
+}
+" 2>&1)
+    echo "$SETTINGS_OUTPUT"
+    if echo "$SETTINGS_OUTPUT" | grep -q "^ok"; then
+        touch "$SETTINGS_MARKER"
+        SETTINGS_STATUS="Ran"
+        php artisan optimize:clear
+        php artisan optimize
+    else
+        SETTINGS_STATUS="Failed"
+    fi
+fi
+# ============================================================
+# END ONE-SHOT — Settings Migration
+# ============================================================
+
 chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
 
@@ -142,6 +183,7 @@ MSG="<b>Deploy Complete</b>
 <b>Files:</b> ${FILES_CHANGED} changed
 <b>Migration:</b> ${MIGRATE_STATUS}
 <b>One-Shot:</b> ${ONESHOT_STATUS}
+<b>Settings:</b> ${SETTINGS_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 
