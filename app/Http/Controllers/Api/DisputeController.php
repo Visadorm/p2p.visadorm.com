@@ -77,11 +77,19 @@ class DisputeController extends Controller
     }
 
     /**
-     * View dispute details.
+     * View dispute details. Lookup by parent trade's unguessable hash.
      */
-    public function show(Request $request, int $disputeId): JsonResponse
+    public function show(Request $request, string $tradeHash): JsonResponse
     {
-        $dispute = Dispute::with('trade')->find($disputeId);
+        $trade = Trade::where('trade_hash', $tradeHash)->first();
+
+        if (! $trade) {
+            return response()->json([
+                'message' => __('p2p.trade_not_found'),
+            ], 404);
+        }
+
+        $dispute = Dispute::where('trade_id', $trade->id)->first();
 
         if (! $dispute) {
             return response()->json([
@@ -90,7 +98,6 @@ class DisputeController extends Controller
         }
 
         $userWallet = strtolower($request->user()->wallet_address);
-        $trade = $dispute->trade;
         $isBuyer = strtolower($trade->buyer_wallet) === $userWallet;
         $isMerchant = $trade->merchant_id === $request->merchant->id;
 
@@ -109,16 +116,24 @@ class DisputeController extends Controller
     }
 
     /**
-     * Upload evidence for an open dispute.
+     * Upload evidence for an open dispute. Keyed by trade_hash.
      */
-    public function uploadEvidence(Request $request, int $disputeId): JsonResponse
+    public function uploadEvidence(Request $request, string $tradeHash): JsonResponse
     {
         $request->validate([
             'file' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,mp4,webm'],
             'note' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
 
-        $dispute = Dispute::with('trade')->find($disputeId);
+        $trade = Trade::where('trade_hash', $tradeHash)->first();
+
+        if (! $trade) {
+            return response()->json([
+                'message' => __('p2p.trade_not_found'),
+            ], 404);
+        }
+
+        $dispute = Dispute::where('trade_id', $trade->id)->first();
 
         if (! $dispute) {
             return response()->json([
@@ -127,7 +142,6 @@ class DisputeController extends Controller
         }
 
         $userWallet = strtolower($request->user()->wallet_address);
-        $trade = $dispute->trade;
         $isBuyer = strtolower($trade->buyer_wallet) === $userWallet;
         $isMerchant = $trade->merchant_id === $request->merchant->id;
 
@@ -152,10 +166,10 @@ class DisputeController extends Controller
     }
 
     /**
-     * POST /api/admin/dispute/{disputeId}/resolve
+     * POST /api/admin/trade/{tradeHash}/dispute/resolve
      * Admin only. Uses ADMIN_ROLE key to resolve on-chain.
      */
-    public function resolve(Request $request, int $disputeId): JsonResponse
+    public function resolve(Request $request, string $tradeHash): JsonResponse
     {
         // Admin-only: check user has an admin role
         if (! in_array($request->user()?->role, ['super_admin', 'dispute_manager'])) {
@@ -166,7 +180,13 @@ class DisputeController extends Controller
             'winner' => ['required', 'string', 'regex:/^0x[a-fA-F0-9]{40}$/'],
         ]);
 
-        $dispute = Dispute::with('trade.merchant')->find($disputeId);
+        $trade = Trade::where('trade_hash', $tradeHash)->with('merchant')->first();
+
+        if (! $trade) {
+            return response()->json(['message' => __('p2p.trade_not_found')], 404);
+        }
+
+        $dispute = Dispute::where('trade_id', $trade->id)->first();
 
         if (! $dispute) {
             return response()->json(['message' => __('p2p.dispute_not_found')], 404);
@@ -176,7 +196,6 @@ class DisputeController extends Controller
             return response()->json(['message' => __('p2p.dispute_not_open')], 422);
         }
 
-        $trade = $dispute->trade;
         $winner = strtolower($validated['winner']);
         $merchantWallet = strtolower($trade->merchant->wallet_address);
         $buyerWallet = strtolower($trade->buyer_wallet);

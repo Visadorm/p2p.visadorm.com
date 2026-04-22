@@ -296,14 +296,14 @@ export const api = {
             body: JSON.stringify({ reason }),
         }).then(handleResponse),
 
-    getDispute: (id) =>
-        fetch(`${API_BASE}/dispute/${id}`, { headers: headers() }).then(handleResponse),
+    getDispute: (tradeHash) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/dispute`, { headers: headers() }).then(handleResponse),
 
-    uploadDisputeEvidence: (id, file, note) => {
+    uploadDisputeEvidence: (tradeHash, file, note) => {
         const formData = new FormData();
         formData.append('file', file);
         if (note) formData.append('note', note);
-        return fetch(`${API_BASE}/dispute/${id}/evidence`, {
+        return fetch(`${API_BASE}/trade/${tradeHash}/dispute/evidence`, {
             method: 'POST',
             headers: fileHeaders(),
             body: formData,

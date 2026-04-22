@@ -276,17 +276,16 @@ class TradeController extends Controller
             ], 404);
         }
 
+        // Public endpoint — do not leak buyer_wallet, meeting_location, or nft_token_id.
+        // Physical safety: cash meeting locations must stay private to authenticated parties.
         return response()->json([
             'data' => [
                 'trade_hash' => $trade->trade_hash,
                 'amount_usdc' => $trade->amount_usdc,
                 'amount_fiat' => $trade->amount_fiat,
                 'currency_code' => $trade->currency_code,
-                'buyer_wallet' => $trade->buyer_wallet,
                 'merchant_name' => $trade->merchant?->username,
                 'payment_method' => $trade->payment_method,
-                'meeting_location' => $trade->meeting_location,
-                'nft_token_id' => $trade->nft_token_id,
                 'status' => $trade->status,
                 'created_at' => $trade->created_at,
             ],

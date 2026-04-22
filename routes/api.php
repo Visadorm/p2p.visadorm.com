@@ -119,13 +119,14 @@ Route::middleware(['auth:sanctum', EnsureWalletAuthenticated::class])->group(fun
         Route::get('tx/{hash}', [EscrowController::class, 'txStatus'])->name('tx-status');
     });
 
-    // Disputes — rate-limited
+    // Disputes — rate-limited, keyed by unguessable trade_hash (not enumerable integer id)
     Route::post('trade/{tradeHash}/dispute', [DisputeController::class, 'store'])->middleware('throttle:5,5')->name('api.dispute.store');
-    Route::get('dispute/{disputeId}', [DisputeController::class, 'show'])->name('api.dispute.show');
-    Route::post('dispute/{disputeId}/evidence', [DisputeController::class, 'uploadEvidence'])->name('api.dispute.evidence');
+    Route::get('trade/{tradeHash}/dispute', [DisputeController::class, 'show'])->name('api.dispute.show');
+    Route::post('trade/{tradeHash}/dispute/evidence', [DisputeController::class, 'uploadEvidence'])->middleware('throttle:10,5')->name('api.dispute.evidence');
 
     // Admin: resolve dispute
-    Route::post('admin/dispute/{disputeId}/resolve', [DisputeController::class, 'resolve'])
+    Route::post('admin/trade/{tradeHash}/dispute/resolve', [DisputeController::class, 'resolve'])
+        ->middleware('throttle:10,1')
         ->name('api.dispute.resolve');
 
     // Notifications

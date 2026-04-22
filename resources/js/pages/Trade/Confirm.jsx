@@ -199,10 +199,10 @@ export default function TradeConfirm({ tradeHash }) {
   }
 
   const handleUploadEvidence = async (file) => {
-    if (!file || !trade?.dispute?.id) return
+    if (!file || !trade?.dispute?.id || !trade?.trade_hash) return
     setUploadingEvidence(true)
     try {
-      await api.uploadDisputeEvidence(trade.dispute.id, file, evidenceNote.trim() || undefined)
+      await api.uploadDisputeEvidence(trade.trade_hash, file, evidenceNote.trim() || undefined)
       toast.success("Evidence uploaded")
       setEvidenceNote("")
       await fetchTrade()

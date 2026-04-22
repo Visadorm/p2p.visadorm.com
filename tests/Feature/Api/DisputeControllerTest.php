@@ -230,7 +230,7 @@ class DisputeControllerTest extends TestCase
     {
         Sanctum::actingAs($this->merchantUser);
 
-        $this->getJson('/api/dispute/99999')
+        $this->getJson('/api/trade/0xnonexistenttradehash/dispute')
             ->assertNotFound();
     }
 
@@ -252,7 +252,7 @@ class DisputeControllerTest extends TestCase
 
         Sanctum::actingAs($otherUser);
 
-        $this->getJson('/api/dispute/' . $dispute->id)
+        $this->getJson('/api/trade/' . $trade->trade_hash . '/dispute')
             ->assertForbidden();
     }
 
@@ -273,7 +273,7 @@ class DisputeControllerTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $response = $this->getJson('/api/dispute/' . $dispute->id);
+        $response = $this->getJson('/api/trade/' . $trade->trade_hash . '/dispute');
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -297,7 +297,7 @@ class DisputeControllerTest extends TestCase
         // Authenticate as the merchant who owns the trade
         Sanctum::actingAs($this->merchantUser);
 
-        $response = $this->getJson('/api/dispute/' . $dispute->id);
+        $response = $this->getJson('/api/trade/' . $trade->trade_hash . '/dispute');
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -330,7 +330,7 @@ class DisputeControllerTest extends TestCase
 
         Sanctum::actingAs($otherUser);
 
-        $this->postJson('/api/dispute/' . $dispute->id . '/evidence', [
+        $this->postJson('/api/trade/' . $trade->trade_hash . '/dispute/evidence', [
             'file' => UploadedFile::fake()->image('evidence.jpg'),
         ])->assertForbidden();
     }
@@ -354,7 +354,7 @@ class DisputeControllerTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $this->postJson('/api/dispute/' . $dispute->id . '/evidence', [
+        $this->postJson('/api/trade/' . $trade->trade_hash . '/dispute/evidence', [
             'file' => UploadedFile::fake()->image('evidence.jpg'),
         ])->assertUnprocessable();
     }
@@ -377,7 +377,7 @@ class DisputeControllerTest extends TestCase
         Sanctum::actingAs($buyer);
 
         // Send no file
-        $this->postJson('/api/dispute/' . $dispute->id . '/evidence', [])
+        $this->postJson('/api/trade/' . $trade->trade_hash . '/dispute/evidence', [])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['file']);
     }
@@ -407,7 +407,7 @@ class DisputeControllerTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $response = $this->postJson('/api/dispute/' . $dispute->id . '/evidence', [
+        $response = $this->postJson('/api/trade/' . $trade->trade_hash . '/dispute/evidence', [
             'file' => UploadedFile::fake()->image('evidence.jpg'),
         ]);
 
@@ -427,7 +427,7 @@ class DisputeControllerTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $this->postJson('/api/dispute/99999/evidence', [
+        $this->postJson('/api/trade/0xnonexistenttradehash/dispute/evidence', [
             'file' => UploadedFile::fake()->image('evidence.jpg'),
         ])->assertNotFound();
     }
