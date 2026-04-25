@@ -4,7 +4,7 @@
 # Auto Deploy Script — Visadorm P2P
 # Checks GitHub for new commits every 2 minutes.
 # Only deploys if new changes detected.
-# Trigger 3.
+# Trigger 4.
 # ============================================
 BRANCH="main"
 
