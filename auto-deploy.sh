@@ -53,9 +53,19 @@ git pull origin "$BRANCH"
 
 FILES_CHANGED=$(git diff HEAD@{1} --name-only 2>/dev/null | wc -l | tr -d ' ')
 
-if git diff HEAD@{1} --name-only 2>/dev/null | grep -q "composer.lock"; then
-    echo "Installing PHP dependencies..."
-    composer install --no-dev --no-interaction --optimize-autoloader
+# Always run composer install — idempotent if up-to-date, recovers from
+# missed/failed installs on prior deploys (e.g. when composer.lock landed
+# in a commit that didn't fully install).
+echo "Installing PHP dependencies..."
+COMPOSER_OUT=$(composer install --no-dev --no-interaction --optimize-autoloader 2>&1)
+COMPOSER_RC=$?
+echo "$COMPOSER_OUT"
+if [ $COMPOSER_RC -eq 0 ]; then
+    COMPOSER_STATUS="Ok"
+    COMPOSER_ERR=""
+else
+    COMPOSER_STATUS="Failed (rc=$COMPOSER_RC)"
+    COMPOSER_ERR=$(echo "$COMPOSER_OUT" | tail -c 600 | tr '<>' '[]')
 fi
 
 # ===== Force-seed required settings rows via bare PDO (no Laravel boot) =====
@@ -76,11 +86,15 @@ if [ -f "scripts/backfill-settings.php" ]; then
 fi
 
 MIGRATE_OUTPUT=$(php artisan migrate --force --no-interaction 2>&1)
+MIGRATE_RC=$?
 echo "$MIGRATE_OUTPUT"
-if echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
+MIGRATE_TAIL=$(echo "$MIGRATE_OUTPUT" | tail -c 500 | tr '<>' '[]')
+if [ $MIGRATE_RC -ne 0 ]; then
+    MIGRATE_STATUS="Failed (rc=$MIGRATE_RC)"
+elif echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
     MIGRATE_STATUS="Ran"
 else
-    MIGRATE_STATUS="Skipped"
+    MIGRATE_STATUS="Nothing to migrate"
 fi
 
 # Always refresh autoload + clear ALL Laravel caches before seeders.
@@ -176,6 +190,7 @@ MSG="<b>Deploy Complete</b>
 <b>Branch:</b> ${BRANCH}
 <b>Commit:</b> <code>${COMMIT_SHORT}</code> ${COMMIT_MSG}
 <b>Files:</b> ${FILES_CHANGED} changed
+<b>Composer:</b> ${COMPOSER_STATUS}
 <b>SettingsBackfill:</b> ${SETTINGS_BACKFILL_STATUS}
 <b>Migration:</b> ${MIGRATE_STATUS}
 <b>WorldSeed:</b> ${WORLD_SEED_STATUS}
@@ -183,11 +198,25 @@ MSG="<b>Deploy Complete</b>
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 
+if [ -n "$COMPOSER_ERR" ]; then
+    MSG="${MSG}
+
+<b>Composer error:</b>
+<pre>${COMPOSER_ERR}</pre>"
+fi
+
 if [ -n "$SETTINGS_BACKFILL_ERR" ]; then
     MSG="${MSG}
 
 <b>SettingsBackfill error:</b>
 <pre>${SETTINGS_BACKFILL_ERR}</pre>"
+fi
+
+if [ "$MIGRATE_STATUS" != "Ran" ] && [ "$MIGRATE_STATUS" != "Nothing to migrate" ]; then
+    MSG="${MSG}
+
+<b>Migrate output:</b>
+<pre>${MIGRATE_TAIL}</pre>"
 fi
 
 if [ -n "$WORLD_SEED_ERR" ]; then
