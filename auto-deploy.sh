@@ -58,30 +58,20 @@ if git diff HEAD@{1} --name-only 2>/dev/null | grep -q "composer.lock"; then
     composer install --no-dev --no-interaction --optimize-autoloader
 fi
 
-# ===== Force-seed required settings rows via raw SQL =====
-# Bypasses Laravel boot (which would otherwise crash via Filament -> Spatie
-# MissingSettings before any artisan command can run).
-DB_HOST_ENV=$(grep -E '^DB_HOST=' .env | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-DB_PORT_ENV=$(grep -E '^DB_PORT=' .env | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-DB_NAME_ENV=$(grep -E '^DB_DATABASE=' .env | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-DB_USER_ENV=$(grep -E '^DB_USERNAME=' .env | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-DB_PASS_ENV=$(grep -E '^DB_PASSWORD=' .env | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+# ===== Force-seed required settings rows via bare PDO (no Laravel boot) =====
+# Bypasses Laravel boot. Filament/Inertia would otherwise crash via Spatie
+# MissingSettings before any artisan command can run.
 SETTINGS_BACKFILL_STATUS="Skipped"
-if [ -n "$DB_NAME_ENV" ] && [ -n "$DB_USER_ENV" ]; then
-    BACKFILL_OUT=$(MYSQL_PWD="$DB_PASS_ENV" mysql --protocol=TCP -h "${DB_HOST_ENV:-127.0.0.1}" -P "${DB_PORT_ENV:-3306}" -u "$DB_USER_ENV" "$DB_NAME_ENV" -e "
-        INSERT IGNORE INTO settings (\`group\`, name, payload, locked, created_at, updated_at) VALUES
-          ('general', 'support_url',      'null',      0, NOW(), NOW()),
-          ('general', 'homepage_variant', '\"classic\"', 0, NOW(), NOW()),
-          ('general', 'weglot_enabled',   'false',     0, NOW(), NOW()),
-          ('general', 'weglot_api_key',   'null',      0, NOW(), NOW());
-        SELECT ROW_COUNT() AS inserted;
-    " 2>&1)
+SETTINGS_BACKFILL_ERR=""
+if [ -f "scripts/backfill-settings.php" ]; then
+    BACKFILL_OUT=$(php scripts/backfill-settings.php 2>&1)
     BACKFILL_RC=$?
     echo "Settings backfill: $BACKFILL_OUT"
     if [ $BACKFILL_RC -eq 0 ]; then
         SETTINGS_BACKFILL_STATUS="Ran"
     else
-        SETTINGS_BACKFILL_STATUS="Failed"
+        SETTINGS_BACKFILL_STATUS="Failed (rc=$BACKFILL_RC)"
+        SETTINGS_BACKFILL_ERR=$(echo "$BACKFILL_OUT" | tail -c 400 | tr '<>' '[]')
     fi
 fi
 
@@ -192,6 +182,13 @@ MSG="<b>Deploy Complete</b>
 <b>PagesSeed:</b> ${PAGES_SEED_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
+
+if [ -n "$SETTINGS_BACKFILL_ERR" ]; then
+    MSG="${MSG}
+
+<b>SettingsBackfill error:</b>
+<pre>${SETTINGS_BACKFILL_ERR}</pre>"
+fi
 
 if [ -n "$WORLD_SEED_ERR" ]; then
     MSG="${MSG}
