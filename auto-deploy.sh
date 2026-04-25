@@ -4,7 +4,6 @@
 # Auto Deploy Script — Visadorm P2P
 # Checks GitHub for new commits every 2 minutes.
 # Only deploys if new changes detected.
-# Trigger 6.
 # ============================================
 
 # Self-replicate to /tmp and re-exec so a mid-run `git pull` that rewrites
@@ -22,6 +21,14 @@ if [ -z "$AUTO_DEPLOY_REEXEC" ]; then
 fi
 
 BRANCH="main"
+PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
+DOMAIN="p2p.visadorm.com"
+LOG_DIR="$PROJECT_DIR/storage/logs"
+TG_A="8725383408"
+TG_B=":AAFRWW7t1Sopj"
+TG_C="ZFIxwgNTq5rFu0Vj-wtpzw"
+TG_BOT="${TG_A}${TG_B}${TG_C}"
+TG_CHAT="6113315629"
 
 # Cron strips PATH down to a minimal set. Composer + node + git binaries can
 # live in many places depending on hosting. Make sure they are findable.
@@ -40,13 +47,12 @@ elif [ -f "$HOME/composer.phar" ]; then
 elif [ -f "/usr/local/bin/composer.phar" ]; then
     COMPOSER_CMD="php /usr/local/bin/composer.phar"
 else
-    # Project-local fallback. Download once into project root, reuse forever.
-    PROJECT_COMPOSER="/home/visadorm/p2p.visadorm.com/composer.phar"
+    PROJECT_COMPOSER="$PROJECT_DIR/composer.phar"
     if [ ! -f "$PROJECT_COMPOSER" ]; then
         echo "Bootstrapping composer.phar into project root..."
         curl -sS https://getcomposer.org/installer -o /tmp/composer-installer.php 2>/dev/null
         if [ -s /tmp/composer-installer.php ]; then
-            php /tmp/composer-installer.php --install-dir=/home/visadorm/p2p.visadorm.com --filename=composer.phar 2>&1 || true
+            php /tmp/composer-installer.php --install-dir="$PROJECT_DIR" --filename=composer.phar 2>&1 || true
             rm -f /tmp/composer-installer.php
         fi
     fi
@@ -56,15 +62,6 @@ else
         COMPOSER_CMD=""
     fi
 fi
-
-PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
-DOMAIN="p2p.visadorm.com"
-LOG_DIR="$PROJECT_DIR/storage/logs"
-TG_A="8725383408"
-TG_B=":AAFRWW7t1Sopj"
-TG_C="ZFIxwgNTq5rFu0Vj-wtpzw"
-TG_BOT="${TG_A}${TG_B}${TG_C}"
-TG_CHAT="6113315629"
 
 send_tg() {
     curl -s -X POST "https://api.telegram.org/bot${TG_BOT}/sendMessage" \
@@ -102,41 +99,31 @@ git pull origin "$BRANCH"
 
 FILES_CHANGED=$(git diff HEAD@{1} --name-only 2>/dev/null | wc -l | tr -d ' ')
 
-# Always run composer install — idempotent if up-to-date, recovers from
-# missed/failed installs on prior deploys.
-echo "Installing PHP dependencies..."
+# Composer install — only when composer.lock actually changed.
+COMPOSER_STATUS="Skipped"
 COMPOSER_ERR=""
-if [ -z "$COMPOSER_CMD" ]; then
-    COMPOSER_STATUS="NotFound"
-    COMPOSER_ERR="composer binary not found in PATH or common locations"
-    echo "$COMPOSER_ERR"
-else
-    COMPOSER_OUT=$($COMPOSER_CMD install --no-dev --no-interaction --optimize-autoloader 2>&1)
-    COMPOSER_RC=$?
-    echo "$COMPOSER_OUT"
-    if [ $COMPOSER_RC -eq 0 ]; then
-        COMPOSER_STATUS="Ok"
+if git diff HEAD@{1} --name-only 2>/dev/null | grep -q "composer.lock"; then
+    if [ -z "$COMPOSER_CMD" ]; then
+        COMPOSER_STATUS="NotFound"
+        COMPOSER_ERR="composer binary not found in PATH or common locations"
     else
-        COMPOSER_STATUS="Failed (rc=$COMPOSER_RC)"
-        COMPOSER_ERR=$(echo "$COMPOSER_OUT" | tail -c 600 | tr '<>' '[]')
+        COMPOSER_OUT=$($COMPOSER_CMD install --no-dev --no-interaction --optimize-autoloader 2>&1)
+        COMPOSER_RC=$?
+        echo "$COMPOSER_OUT"
+        if [ $COMPOSER_RC -eq 0 ]; then
+            COMPOSER_STATUS="Ok"
+        else
+            COMPOSER_STATUS="Failed (rc=$COMPOSER_RC)"
+            COMPOSER_ERR=$(echo "$COMPOSER_OUT" | tail -c 600 | tr '<>' '[]')
+        fi
     fi
 fi
 
-# ===== Force-seed required settings rows via bare PDO (no Laravel boot) =====
-# Bypasses Laravel boot. Filament/Inertia would otherwise crash via Spatie
-# MissingSettings before any artisan command can run.
-SETTINGS_BACKFILL_STATUS="Skipped"
-SETTINGS_BACKFILL_ERR=""
+# Defensive: ensure required Spatie settings rows exist before any artisan
+# command boots Filament (which would otherwise crash via MissingSettings).
+# Bare PDO — no Laravel boot involved. Idempotent.
 if [ -f "scripts/backfill-settings.php" ]; then
-    BACKFILL_OUT=$(php scripts/backfill-settings.php 2>&1)
-    BACKFILL_RC=$?
-    echo "Settings backfill: $BACKFILL_OUT"
-    if [ $BACKFILL_RC -eq 0 ]; then
-        SETTINGS_BACKFILL_STATUS="Ran"
-    else
-        SETTINGS_BACKFILL_STATUS="Failed (rc=$BACKFILL_RC)"
-        SETTINGS_BACKFILL_ERR=$(echo "$BACKFILL_OUT" | tail -c 400 | tr '<>' '[]')
-    fi
+    php scripts/backfill-settings.php 2>&1 || true
 fi
 
 MIGRATE_OUTPUT=$(php artisan migrate --force --no-interaction 2>&1)
@@ -150,56 +137,6 @@ elif echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
 else
     MIGRATE_STATUS="Nothing to migrate"
 fi
-
-# Always refresh autoload + clear ALL Laravel caches before seeders.
-# Stale bootstrap/cache/services.php can carry an old AppServiceProvider that
-# pre-dates the defensive settings-boot hook, causing Spatie MissingSettings.
-composer dump-autoload --optimize --no-interaction 2>&1 || true
-php artisan clear-compiled 2>&1 || true
-php artisan optimize:clear 2>&1 || true
-php artisan package:discover --ansi 2>&1 || true
-
-# ===== BEGIN ONE-SHOT: world_seed =====
-# Seeds nnjeim/world countries/states/cities/timezones/currencies/languages once.
-# Remove this block after first successful run on production.
-WORLD_SEED_MARKER="$PROJECT_DIR/storage/app/.world_seeded"
-WORLD_SEED_STATUS="Skipped"
-WORLD_SEED_ERR=""
-if [ ! -f "$WORLD_SEED_MARKER" ]; then
-    echo "Running WorldSeeder (one-shot)..."
-    WS_OUT=$(php -d memory_limit=1024M artisan db:seed --class=WorldSeeder --force --no-interaction 2>&1)
-    WS_RC=$?
-    echo "$WS_OUT"
-    if [ $WS_RC -eq 0 ]; then
-        touch "$WORLD_SEED_MARKER"
-        WORLD_SEED_STATUS="Ran"
-    else
-        WORLD_SEED_STATUS="Failed"
-        WORLD_SEED_ERR=$(echo "$WS_OUT" | tail -c 500 | tr '<>' '[]')
-    fi
-fi
-# ===== END ONE-SHOT: world_seed =====
-
-# ===== BEGIN ONE-SHOT: pages_seed =====
-# Seeds default Terms + Privacy pages once.
-# Remove this block after first successful run on production.
-PAGES_SEED_MARKER="$PROJECT_DIR/storage/app/.pages_seeded"
-PAGES_SEED_STATUS="Skipped"
-PAGES_SEED_ERR=""
-if [ ! -f "$PAGES_SEED_MARKER" ]; then
-    echo "Running PagesSeeder (one-shot)..."
-    PS_OUT=$(php artisan db:seed --class=PagesSeeder --force --no-interaction 2>&1)
-    PS_RC=$?
-    echo "$PS_OUT"
-    if [ $PS_RC -eq 0 ]; then
-        touch "$PAGES_SEED_MARKER"
-        PAGES_SEED_STATUS="Ran"
-    else
-        PAGES_SEED_STATUS="Failed"
-        PAGES_SEED_ERR=$(echo "$PS_OUT" | tail -c 500 | tr '<>' '[]')
-    fi
-fi
-# ===== END ONE-SHOT: pages_seed =====
 
 php artisan optimize:clear
 php artisan optimize
@@ -245,10 +182,7 @@ MSG="<b>Deploy Complete</b>
 <b>Commit:</b> <code>${COMMIT_SHORT}</code> ${COMMIT_MSG}
 <b>Files:</b> ${FILES_CHANGED} changed
 <b>Composer:</b> ${COMPOSER_STATUS}
-<b>SettingsBackfill:</b> ${SETTINGS_BACKFILL_STATUS}
 <b>Migration:</b> ${MIGRATE_STATUS}
-<b>WorldSeed:</b> ${WORLD_SEED_STATUS}
-<b>PagesSeed:</b> ${PAGES_SEED_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 
@@ -259,13 +193,6 @@ if [ -n "$COMPOSER_ERR" ]; then
 <pre>${COMPOSER_ERR}</pre>"
 fi
 
-if [ -n "$SETTINGS_BACKFILL_ERR" ]; then
-    MSG="${MSG}
-
-<b>SettingsBackfill error:</b>
-<pre>${SETTINGS_BACKFILL_ERR}</pre>"
-fi
-
 if [ "$MIGRATE_STATUS" != "Ran" ] && [ "$MIGRATE_STATUS" != "Nothing to migrate" ]; then
     MSG="${MSG}
 
@@ -273,19 +200,4 @@ if [ "$MIGRATE_STATUS" != "Ran" ] && [ "$MIGRATE_STATUS" != "Nothing to migrate"
 <pre>${MIGRATE_TAIL}</pre>"
 fi
 
-if [ -n "$WORLD_SEED_ERR" ]; then
-    MSG="${MSG}
-
-<b>WorldSeed error:</b>
-<pre>${WORLD_SEED_ERR}</pre>"
-fi
-
-if [ -n "$PAGES_SEED_ERR" ]; then
-    MSG="${MSG}
-
-<b>PagesSeed error:</b>
-<pre>${PAGES_SEED_ERR}</pre>"
-fi
-
 send_tg "$MSG"
-
