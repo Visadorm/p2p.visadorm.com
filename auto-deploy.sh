@@ -66,18 +66,27 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
+# Always refresh autoload + clear caches before seeders (composer may have just installed)
+composer dump-autoload --optimize --no-interaction 2>&1 || true
+php artisan config:clear 2>&1 || true
+
 # ===== BEGIN ONE-SHOT: world_seed =====
 # Seeds nnjeim/world countries/states/cities/timezones/currencies/languages once.
 # Remove this block after first successful run on production.
 WORLD_SEED_MARKER="$PROJECT_DIR/storage/app/.world_seeded"
 WORLD_SEED_STATUS="Skipped"
+WORLD_SEED_ERR=""
 if [ ! -f "$WORLD_SEED_MARKER" ]; then
     echo "Running WorldSeeder (one-shot)..."
-    if php -d memory_limit=1024M artisan db:seed --class=WorldSeeder --force --no-interaction 2>&1; then
+    WS_OUT=$(php -d memory_limit=1024M artisan db:seed --class=WorldSeeder --force --no-interaction 2>&1)
+    WS_RC=$?
+    echo "$WS_OUT"
+    if [ $WS_RC -eq 0 ]; then
         touch "$WORLD_SEED_MARKER"
         WORLD_SEED_STATUS="Ran"
     else
         WORLD_SEED_STATUS="Failed"
+        WORLD_SEED_ERR=$(echo "$WS_OUT" | tail -c 500 | tr '<>' '[]')
     fi
 fi
 # ===== END ONE-SHOT: world_seed =====
@@ -87,13 +96,18 @@ fi
 # Remove this block after first successful run on production.
 PAGES_SEED_MARKER="$PROJECT_DIR/storage/app/.pages_seeded"
 PAGES_SEED_STATUS="Skipped"
+PAGES_SEED_ERR=""
 if [ ! -f "$PAGES_SEED_MARKER" ]; then
     echo "Running PagesSeeder (one-shot)..."
-    if php artisan db:seed --class=PagesSeeder --force --no-interaction 2>&1; then
+    PS_OUT=$(php artisan db:seed --class=PagesSeeder --force --no-interaction 2>&1)
+    PS_RC=$?
+    echo "$PS_OUT"
+    if [ $PS_RC -eq 0 ]; then
         touch "$PAGES_SEED_MARKER"
         PAGES_SEED_STATUS="Ran"
     else
         PAGES_SEED_STATUS="Failed"
+        PAGES_SEED_ERR=$(echo "$PS_OUT" | tail -c 500 | tr '<>' '[]')
     fi
 fi
 # ===== END ONE-SHOT: pages_seed =====
@@ -146,6 +160,20 @@ MSG="<b>Deploy Complete</b>
 <b>PagesSeed:</b> ${PAGES_SEED_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
+
+if [ -n "$WORLD_SEED_ERR" ]; then
+    MSG="${MSG}
+
+<b>WorldSeed error:</b>
+<pre>${WORLD_SEED_ERR}</pre>"
+fi
+
+if [ -n "$PAGES_SEED_ERR" ]; then
+    MSG="${MSG}
+
+<b>PagesSeed error:</b>
+<pre>${PAGES_SEED_ERR}</pre>"
+fi
 
 send_tg "$MSG"
 
