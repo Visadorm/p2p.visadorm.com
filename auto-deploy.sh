@@ -23,6 +23,25 @@ fi
 
 BRANCH="main"
 
+# Cron strips PATH down to a minimal set. Composer + node + git binaries can
+# live in many places depending on hosting. Make sure they are findable.
+export PATH="/usr/local/bin:/usr/bin:/bin:/opt/cpanel/composer/bin:/opt/cpanel/ea-php82/root/usr/bin:/opt/cpanel/ea-php83/root/usr/bin:$HOME/.composer/vendor/bin:$HOME/bin:$PATH"
+
+# Locate composer (binary or phar) — fall back to common install paths.
+if command -v composer >/dev/null 2>&1; then
+    COMPOSER_CMD="composer"
+elif [ -x "/usr/local/bin/composer" ]; then
+    COMPOSER_CMD="/usr/local/bin/composer"
+elif [ -x "/opt/cpanel/composer/bin/composer" ]; then
+    COMPOSER_CMD="/opt/cpanel/composer/bin/composer"
+elif [ -f "$HOME/composer.phar" ]; then
+    COMPOSER_CMD="php $HOME/composer.phar"
+elif [ -f "/usr/local/bin/composer.phar" ]; then
+    COMPOSER_CMD="php /usr/local/bin/composer.phar"
+else
+    COMPOSER_CMD=""
+fi
+
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
 DOMAIN="p2p.visadorm.com"
 LOG_DIR="$PROJECT_DIR/storage/logs"
@@ -69,18 +88,23 @@ git pull origin "$BRANCH"
 FILES_CHANGED=$(git diff HEAD@{1} --name-only 2>/dev/null | wc -l | tr -d ' ')
 
 # Always run composer install — idempotent if up-to-date, recovers from
-# missed/failed installs on prior deploys (e.g. when composer.lock landed
-# in a commit that didn't fully install).
+# missed/failed installs on prior deploys.
 echo "Installing PHP dependencies..."
-COMPOSER_OUT=$(composer install --no-dev --no-interaction --optimize-autoloader 2>&1)
-COMPOSER_RC=$?
-echo "$COMPOSER_OUT"
-if [ $COMPOSER_RC -eq 0 ]; then
-    COMPOSER_STATUS="Ok"
-    COMPOSER_ERR=""
+COMPOSER_ERR=""
+if [ -z "$COMPOSER_CMD" ]; then
+    COMPOSER_STATUS="NotFound"
+    COMPOSER_ERR="composer binary not found in PATH or common locations"
+    echo "$COMPOSER_ERR"
 else
-    COMPOSER_STATUS="Failed (rc=$COMPOSER_RC)"
-    COMPOSER_ERR=$(echo "$COMPOSER_OUT" | tail -c 600 | tr '<>' '[]')
+    COMPOSER_OUT=$($COMPOSER_CMD install --no-dev --no-interaction --optimize-autoloader 2>&1)
+    COMPOSER_RC=$?
+    echo "$COMPOSER_OUT"
+    if [ $COMPOSER_RC -eq 0 ]; then
+        COMPOSER_STATUS="Ok"
+    else
+        COMPOSER_STATUS="Failed (rc=$COMPOSER_RC)"
+        COMPOSER_ERR=$(echo "$COMPOSER_OUT" | tail -c 600 | tr '<>' '[]')
+    fi
 fi
 
 # ===== Force-seed required settings rows via bare PDO (no Laravel boot) =====

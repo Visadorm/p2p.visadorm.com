@@ -89,5 +89,34 @@ foreach ($rows as [$group, $name, $payload]) {
     }
 }
 
-echo "inserted={$inserted} considered=" . count($rows) . "\n";
+// Mark the Spatie settings migrations whose rows we just guaranteed as
+// already-ran. Otherwise `php artisan migrate` will retry them and crash with
+// SettingAlreadyExists, aborting all subsequent migrations (including the new
+// pages table). Idempotent — INSERT IGNORE on the unique migration name.
+$migrationsTable = $pdo->query("SHOW TABLES LIKE 'migrations'")->fetchColumn();
+$markedMigrations = 0;
+if ($migrationsTable) {
+    $batch = (int) $pdo->query('SELECT COALESCE(MAX(batch), 0) FROM migrations')->fetchColumn();
+    if ($batch === 0) {
+        $batch = 1;
+    }
+
+    $migrationNames = [
+        '2026_04_23_000001_add_homepage_and_weglot_to_general_settings',
+        '2026_04_24_000001_add_support_url_to_general_settings',
+    ];
+
+    $checkStmt  = $pdo->prepare('SELECT COUNT(*) FROM migrations WHERE migration = ?');
+    $insertStmt = $pdo->prepare('INSERT INTO migrations (migration, batch) VALUES (?, ?)');
+
+    foreach ($migrationNames as $name) {
+        $checkStmt->execute([$name]);
+        if ((int) $checkStmt->fetchColumn() === 0) {
+            $insertStmt->execute([$name, $batch]);
+            $markedMigrations++;
+        }
+    }
+}
+
+echo "inserted={$inserted} considered=" . count($rows) . " marked_migrations={$markedMigrations}\n";
 exit(0);
