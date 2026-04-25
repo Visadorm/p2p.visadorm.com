@@ -27,7 +27,8 @@ BRANCH="main"
 # live in many places depending on hosting. Make sure they are findable.
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/cpanel/composer/bin:/opt/cpanel/ea-php82/root/usr/bin:/opt/cpanel/ea-php83/root/usr/bin:$HOME/.composer/vendor/bin:$HOME/bin:$PATH"
 
-# Locate composer (binary or phar) — fall back to common install paths.
+# Locate composer (binary or phar) — fall back to common install paths,
+# then to a project-local composer.phar (download once if missing).
 if command -v composer >/dev/null 2>&1; then
     COMPOSER_CMD="composer"
 elif [ -x "/usr/local/bin/composer" ]; then
@@ -39,7 +40,21 @@ elif [ -f "$HOME/composer.phar" ]; then
 elif [ -f "/usr/local/bin/composer.phar" ]; then
     COMPOSER_CMD="php /usr/local/bin/composer.phar"
 else
-    COMPOSER_CMD=""
+    # Project-local fallback. Download once into project root, reuse forever.
+    PROJECT_COMPOSER="/home/visadorm/p2p.visadorm.com/composer.phar"
+    if [ ! -f "$PROJECT_COMPOSER" ]; then
+        echo "Bootstrapping composer.phar into project root..."
+        curl -sS https://getcomposer.org/installer -o /tmp/composer-installer.php 2>/dev/null
+        if [ -s /tmp/composer-installer.php ]; then
+            php /tmp/composer-installer.php --install-dir=/home/visadorm/p2p.visadorm.com --filename=composer.phar 2>&1 || true
+            rm -f /tmp/composer-installer.php
+        fi
+    fi
+    if [ -f "$PROJECT_COMPOSER" ]; then
+        COMPOSER_CMD="php $PROJECT_COMPOSER"
+    else
+        COMPOSER_CMD=""
+    fi
 fi
 
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
