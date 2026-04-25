@@ -66,9 +66,13 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-# Always refresh autoload + clear caches before seeders (composer may have just installed)
+# Always refresh autoload + clear ALL Laravel caches before seeders.
+# Stale bootstrap/cache/services.php can carry an old AppServiceProvider that
+# pre-dates the defensive settings-boot hook, causing Spatie MissingSettings.
 composer dump-autoload --optimize --no-interaction 2>&1 || true
-php artisan config:clear 2>&1 || true
+php artisan clear-compiled 2>&1 || true
+php artisan optimize:clear 2>&1 || true
+php artisan package:discover --ansi 2>&1 || true
 
 # ===== BEGIN ONE-SHOT: world_seed =====
 # Seeds nnjeim/world countries/states/cities/timezones/currencies/languages once.
