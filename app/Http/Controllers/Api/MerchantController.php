@@ -72,6 +72,7 @@ class MerchantController extends Controller
             'username' => ['sometimes', 'string', 'max:50', Rule::unique('merchants')->ignore($merchant->id)],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'country_code' => ['sometimes', 'nullable', 'string', 'size:2', 'exists:countries,iso2'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:500'],
             'avatar' => ['sometimes', 'nullable', 'string', 'max:255'],
             'trade_instructions' => ['sometimes', 'nullable', 'string', 'max:2000'],
@@ -258,6 +259,128 @@ class MerchantController extends Controller
                 ],
             ],
             'message' => __('p2p.merchant_profile_loaded'),
+        ]);
+    }
+
+    /**
+     * GET /api/merchants
+     * Public merchant listing — no auth required.
+     *
+     * Query params:
+     *   ?type=buy|sell      filter by trade type (default: all)
+     *   ?currency=DOP       filter by currency code
+     *   ?payment=bank       filter by payment method label/type/provider
+     *   ?per_page=20        results per page (max 50)
+     *   ?top10=1            return top 10 by total_trades (for carousel)
+     */
+    public function listing(Request $request): JsonResponse
+    {
+        $perPage  = min((int) $request->query('per_page', 20), 50);
+        $currency = strtoupper((string) $request->query('currency', ''));
+        $payment  = (string) $request->query('payment', '');
+        $top10    = (bool)   $request->query('top10', false);
+
+        $query = Merchant::query()
+            ->where('is_active', true)
+            ->with([
+                'rank',
+                'currencies'     => fn ($q) => $q->where('is_active', true),
+                'paymentMethods' => fn ($q) => $q->where('is_active', true),
+                'tradingLinks'   => fn ($q) => $q->where('is_active', true)->where('is_primary', true),
+            ]);
+
+        // Only merchants with at least one active trading link
+        $query->whereHas('tradingLinks', fn ($q) => $q->where('is_active', true));
+
+        // Filter by supported currency
+        if ($currency) {
+            $query->whereHas('currencies', fn ($q) =>
+                $q->where('is_active', true)->where('currency_code', $currency)
+            );
+        }
+
+        // Filter by payment method
+        if ($payment) {
+            $query->whereHas('paymentMethods', fn ($q) =>
+                $q->where('is_active', true)
+                  ->where(fn ($q2) =>
+                      $q2->where('type', $payment)
+                         ->orWhere('provider', 'like', "%{$payment}%")
+                         ->orWhere('label', 'like', "%{$payment}%")
+                  )
+            );
+        }
+
+        if ($top10) {
+            $merchants = $query
+                ->orderByDesc('total_trades')
+                ->orderByDesc('completion_rate')
+                ->limit(10)
+                ->get();
+        } else {
+            $merchants = $query
+                ->orderByDesc('is_online')
+                ->orderByDesc('completion_rate')
+                ->orderByDesc('total_trades')
+                ->paginate($perPage);
+        }
+
+        $escrowService = app(EscrowService::class);
+
+        $format = function ($merchant) use ($escrowService) {
+            $escrowBalance = rescue(
+                fn () => $escrowService->getMerchantAvailableBalance($merchant),
+                0
+            );
+
+            return [
+                'username'             => $merchant->username,
+                'avatar'               => $merchant->avatar,
+                'rank'                 => $merchant->rank?->name,
+                'is_online'            => $merchant->is_online,
+                'is_legendary'         => $merchant->is_legendary,
+                'kyc_verified'         => $merchant->kyc_status?->value === 'approved',
+                'bank_verified'        => $merchant->bank_verified,
+                'is_fast_responder'    => $merchant->is_fast_responder,
+                'has_liquidity'        => $merchant->has_liquidity,
+                'total_trades'         => $merchant->total_trades,
+                'completion_rate'      => $merchant->completion_rate,
+                'avg_response_minutes' => $merchant->avg_response_minutes,
+                'available_usdc'       => $escrowBalance,
+                'bio'                  => $merchant->bio,
+                'currencies'           => $merchant->currencies->map(fn ($c) => [
+                    'currency_code' => $c->currency_code,
+                    'markup_percent' => $c->markup_percent,
+                    'min_amount'    => $c->min_amount,
+                    'max_amount'    => $c->max_amount,
+                ]),
+                'payment_methods'      => $merchant->paymentMethods->map(fn ($pm) => [
+                    'type'     => $pm->type?->value,
+                    'provider' => $pm->provider,
+                    'label'    => $pm->label,
+                ]),
+                'primary_slug'         => $merchant->tradingLinks->first()?->slug,
+            ];
+        };
+
+        if ($top10) {
+            return response()->json([
+                'data'    => $merchants->map($format)->values(),
+                'message' => __('p2p.merchants_top_loaded'),
+            ]);
+        }
+
+        return response()->json([
+            'data' => [
+                'merchants'   => collect($merchants->items())->map($format)->values(),
+                'pagination'  => [
+                    'current_page' => $merchants->currentPage(),
+                    'last_page'    => $merchants->lastPage(),
+                    'per_page'     => $merchants->perPage(),
+                    'total'        => $merchants->total(),
+                ],
+            ],
+            'message' => __('p2p.merchants_listing_loaded'),
         ]);
     }
 }

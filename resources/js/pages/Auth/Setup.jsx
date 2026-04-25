@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import SiteLogo from "@/components/SiteLogo"
 import { useWallet } from "@/hooks/useWallet"
 
@@ -48,6 +49,14 @@ export default function Setup() {
   const [username, setUsername] = useState("")
   const [bio, setBio] = useState("")
   const [email, setEmail] = useState("")
+  const [countryCode, setCountryCode] = useState("")
+  const [countries, setCountries] = useState([])
+
+  useEffect(() => {
+    api.getCountries()
+      .then(res => setCountries(res.data || []))
+      .catch(() => {})
+  }, [])
 
   // Avatar state
   const [avatarPreview, setAvatarPreview] = useState(null)
@@ -78,7 +87,12 @@ export default function Setup() {
   const handleComplete = async () => {
     setSaving(true)
     try {
-      await api.updateProfile({ username, bio, email: email || undefined })
+      await api.updateProfile({
+        username,
+        bio,
+        email: email || undefined,
+        country_code: countryCode || undefined,
+      })
       await refreshMerchant()
       toast.success("Profile saved!")
       const returnUrl = sessionStorage.getItem("returnUrl")
@@ -248,6 +262,27 @@ export default function Setup() {
                     <p className="text-sm text-muted-foreground">Shown on your merchant profile</p>
                     <span className="text-sm text-muted-foreground">{bio.length}/300</span>
                   </div>
+                </div>
+
+                <Separator className="opacity-30" />
+
+                <div className="space-y-2">
+                  <Label className="text-base">Country</Label>
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="w-full text-base">
+                      <SelectValue placeholder="Select your country" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {countries.map(c => (
+                        <SelectItem key={c.iso2} value={c.iso2}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Shown on your merchant profile — helps buyers identify your region
+                  </p>
                 </div>
 
                 <Separator className="opacity-30" />

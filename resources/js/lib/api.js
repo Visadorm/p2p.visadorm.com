@@ -79,6 +79,10 @@ export const api = {
     getExchangeRates: () =>
         fetch(`${API_BASE}/exchange-rates`, { headers: headers() }).then(handleResponse),
 
+    // Countries
+    getCountries: () =>
+        fetch(`${API_BASE}/countries`, { headers: headers() }).then(handleResponse),
+
     // Merchant
     getDashboard: () =>
         fetch(`${API_BASE}/merchant/dashboard`, { headers: headers() }).then(handleResponse),

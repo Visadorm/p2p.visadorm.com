@@ -5,6 +5,7 @@ namespace App\Filament\Clusters\Settings\Pages;
 use App\Filament\Clusters\Settings;
 use App\Settings\GeneralSettings;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Pages\SettingsPage;
@@ -62,6 +63,11 @@ class GeneralSettingsPage extends SettingsPage
                             ->label(__('settings.branding.support_email'))
                             ->email()
                             ->required(),
+                        TextInput::make('support_url')
+                            ->label(__('settings.branding.support_url'))
+                            ->helperText(__('settings.branding.support_url_help'))
+                            ->url()
+                            ->maxLength(255),
                         FileUpload::make('logo_path')
                             ->label(__('settings.branding.logo'))
                             ->image()
@@ -98,6 +104,30 @@ class GeneralSettingsPage extends SettingsPage
                         Toggle::make('cash_meetings_enabled')
                             ->label(__('settings.features.cash_meetings_enabled')),
                     ]),
+
+                Section::make(__('settings.homepage.title'))
+                    ->schema([
+                        Select::make('homepage_variant')
+                            ->label(__('settings.homepage.variant'))
+                            ->helperText(__('settings.homepage.variant_help'))
+                            ->options([
+                                'classic' => __('settings.homepage.classic'),
+                                'dynamic' => __('settings.homepage.dynamic'),
+                            ])
+                            ->required()
+                            ->native(false),
+                    ]),
+
+                Section::make(__('settings.translation.title'))
+                    ->schema([
+                        Toggle::make('weglot_enabled')
+                            ->label(__('settings.translation.enabled')),
+                        TextInput::make('weglot_api_key')
+                            ->label(__('settings.translation.api_key'))
+                            ->helperText(__('settings.translation.api_key_help'))
+                            ->maxLength(255),
+                    ])
+                    ->columns(1),
             ]);
     }
 }

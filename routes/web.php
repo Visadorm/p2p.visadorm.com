@@ -4,14 +4,47 @@ use App\Http\Controllers\Admin\KycDownloadController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// Public — Connect Wallet (landing)
+// Public — Landing (variant chosen by admin setting)
 Route::get('/', function () {
+    $variant = rescue(
+        fn () => app(\App\Settings\GeneralSettings::class)->homepage_variant,
+        'classic'
+    );
+    $component = $variant === 'dynamic' ? 'Landing/Dynamic' : 'Landing/Classic';
+    return Inertia::render($component);
+})->name('home');
+
+// Public — Connect Wallet
+Route::get('/connect', function () {
     return Inertia::render('Auth/Connect');
 })->name('connect');
 
-Route::get('/connect', function () {
-    return Inertia::render('Auth/Connect');
-})->name('auth.connect');
+// Public — CMS page (Terms, Privacy, and any admin-created page)
+Route::get('/p/{slug}', function (string $slug) {
+    $page = \App\Models\Page::query()
+        ->published()
+        ->where('slug', $slug)
+        ->first();
+
+    abort_if(! $page, 404);
+
+    $body = str_replace('{date}', $page->published_at?->format('F j, Y') ?? $page->updated_at->format('F j, Y'), (string) $page->body);
+    $html = \Illuminate\Support\Str::markdown($body);
+
+    return Inertia::render('Pages/Show', [
+        'page' => [
+            'title' => $page->title,
+            'slug' => $page->slug,
+            'excerpt' => $page->excerpt,
+            'cover_image' => $page->cover_image ? asset('storage/' . $page->cover_image) : null,
+            'meta_title' => $page->meta_title ?: $page->title,
+            'meta_description' => $page->meta_description ?: $page->excerpt,
+            'html' => $html,
+            'published_at' => $page->published_at?->toIso8601String(),
+            'updated_at' => $page->updated_at->toIso8601String(),
+        ],
+    ]);
+})->name('page.show');
 
 Route::get('/setup', function () {
     return Inertia::render('Auth/Setup');

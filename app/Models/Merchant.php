@@ -55,6 +55,7 @@ class Merchant extends Model
         'notify_email',
         'notify_sms',
         'phone',
+        'country_code',
         'member_since',
     ];
 

@@ -9,6 +9,7 @@
         "@fontsource-variable/instrument-sans": "^5.2.8",
         "@inertiajs/react": "^2.0.0",
         "@phosphor-icons/react": "^2.1.10",
+        "@tailwindcss/typography": "^0.5.19",
         "@walletconnect/ethereum-provider": "^2.23.8",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",

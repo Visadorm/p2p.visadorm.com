@@ -15,6 +15,8 @@ return [
         'site_name' => 'Site Name',
         'site_description' => 'Site Description',
         'support_email' => 'Support Email',
+        'support_url' => 'Support URL',
+        'support_url_help' => 'External link for the "Support" menu entry (e.g. Telegram, Discord, help desk, contact form). Leave blank to use the support email.',
         'logo' => 'Logo',
         'favicon' => 'Favicon',
     ],
@@ -30,6 +32,21 @@ return [
         'merchant_registration_enabled' => 'Merchant Registration',
         'p2p_trading_enabled' => 'P2P Trading',
         'cash_meetings_enabled' => 'Cash Meetings',
+    ],
+
+    'homepage' => [
+        'title' => 'Homepage',
+        'variant' => 'Active Homepage',
+        'variant_help' => 'Switch which landing page visitors see at the site root.',
+        'classic' => 'Classic',
+        'dynamic' => 'Dynamic',
+    ],
+
+    'translation' => [
+        'title' => 'Translation (Weglot)',
+        'enabled' => 'Enable Weglot translation',
+        'api_key' => 'Weglot API Key',
+        'api_key_help' => 'Your Weglot project API key (starts with "wg_"). The script is injected on public pages only.',
     ],
 
     // Blockchain Settings

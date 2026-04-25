@@ -31,9 +31,29 @@ Route::prefix('auth')->middleware('throttle:10,1')->group(function () {
 Route::get('merchant/{username}/profile', [MerchantController::class, 'profile'])
     ->name('api.merchant.profile');
 
+// Public merchant listing (for landing page carousel + buy/sell listing)
+Route::get('merchants', [MerchantController::class, 'listing'])
+    ->middleware('throttle:60,1')
+    ->name('api.merchants.listing');
+
 // Public exchange rates
 Route::get('exchange-rates', [ExchangeRateController::class, 'index'])
     ->name('api.exchange-rates');
+
+// Public country list (cached 24h)
+Route::get('countries', function () {
+    $countries = \Illuminate\Support\Facades\Cache::remember('countries_list', 86400, function () {
+        return \Nnjeim\World\Models\Country::query()
+            ->select(['iso2', 'name', 'phone_code'])
+            ->orderBy('name')
+            ->get()
+            ->toArray();
+    });
+    return response()->json([
+        'data' => $countries,
+        'message' => __('p2p.countries_loaded'),
+    ]);
+})->middleware('throttle:60,1')->name('api.countries');
 
 // Public trading link details
 Route::get('trade/{slug}', [TradeController::class, 'show'])

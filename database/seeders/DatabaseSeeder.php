@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             MerchantRankSeeder::class,
             ProductionSeeder::class,
             BlockchainSettingsSeeder::class,
+            PagesSeeder::class,
         ]);
     }
 }

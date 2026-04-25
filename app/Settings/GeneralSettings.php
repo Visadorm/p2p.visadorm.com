@@ -10,6 +10,7 @@ class GeneralSettings extends Settings
     public string $site_name;
     public string $site_description;
     public string $support_email;
+    public ?string $support_url;
     public ?string $logo_path;
     public ?string $favicon_path;
 
@@ -21,6 +22,13 @@ class GeneralSettings extends Settings
     public bool $merchant_registration_enabled;
     public bool $p2p_trading_enabled;
     public bool $cash_meetings_enabled;
+
+    // Homepage
+    public string $homepage_variant;
+
+    // Translation (Weglot)
+    public bool $weglot_enabled;
+    public ?string $weglot_api_key;
 
     public static function group(): string
     {

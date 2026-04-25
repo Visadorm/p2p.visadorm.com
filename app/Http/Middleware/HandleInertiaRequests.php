@@ -47,7 +47,15 @@ class HandleInertiaRequests extends Middleware
             ], ['total_trades' => 0, 'total_volume' => 0, 'total_merchants' => 0, 'avg_completion' => 0])),
             'site' => fn () => Cache::remember('site_settings', 3600, function () {
                 if (! \Illuminate\Support\Facades\Schema::hasTable('settings')) {
-                    return ['name' => 'Visadorm P2P', 'description' => '', 'logo' => null, 'favicon' => null, 'support_email' => ''];
+                    return [
+                        'name' => 'Visadorm P2P',
+                        'description' => '',
+                        'logo' => null,
+                        'favicon' => null,
+                        'support_email' => '',
+                        'homepage_variant' => 'classic',
+                        'weglot' => ['enabled' => false, 'api_key' => null],
+                    ];
                 }
                 $s = app(GeneralSettings::class);
                 return [
@@ -56,6 +64,25 @@ class HandleInertiaRequests extends Middleware
                     'logo' => $s->logo_path ? asset('storage/' . $s->logo_path) : null,
                     'favicon' => $s->favicon_path ? asset('storage/' . $s->favicon_path) : null,
                     'support_email' => $s->support_email,
+                    'support_url' => $s->support_url ?: ($s->support_email ? 'mailto:' . $s->support_email : null),
+                    'homepage_variant' => $s->homepage_variant,
+                    'weglot' => [
+                        'enabled' => $s->weglot_enabled,
+                        'api_key' => $s->weglot_enabled ? $s->weglot_api_key : null,
+                    ],
+                ];
+            }),
+            'pages' => fn () => Cache::remember('public_pages_nav', 3600, function () {
+                if (! \Illuminate\Support\Facades\Schema::hasTable('pages')) {
+                    return ['header' => [], 'footer' => []];
+                }
+                $all = \App\Models\Page::query()
+                    ->published()
+                    ->ordered()
+                    ->get(['title', 'slug', 'show_in_header', 'show_in_footer']);
+                return [
+                    'header' => $all->where('show_in_header', true)->map(fn ($p) => ['title' => $p->title, 'slug' => $p->slug])->values()->all(),
+                    'footer' => $all->where('show_in_footer', true)->map(fn ($p) => ['title' => $p->title, 'slug' => $p->slug])->values()->all(),
                 ];
             }),
             'blockchain' => fn () => Cache::remember('blockchain_config', 3600, fn () => rescue(fn () => [

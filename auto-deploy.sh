@@ -65,6 +65,38 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
+# ===== BEGIN ONE-SHOT: world_seed =====
+# Seeds nnjeim/world countries/states/cities/timezones/currencies/languages once.
+# Remove this block after first successful run on production.
+WORLD_SEED_MARKER="$PROJECT_DIR/storage/app/.world_seeded"
+WORLD_SEED_STATUS="Skipped"
+if [ ! -f "$WORLD_SEED_MARKER" ]; then
+    echo "Running WorldSeeder (one-shot)..."
+    if php -d memory_limit=1024M artisan db:seed --class=WorldSeeder --force --no-interaction 2>&1; then
+        touch "$WORLD_SEED_MARKER"
+        WORLD_SEED_STATUS="Ran"
+    else
+        WORLD_SEED_STATUS="Failed"
+    fi
+fi
+# ===== END ONE-SHOT: world_seed =====
+
+# ===== BEGIN ONE-SHOT: pages_seed =====
+# Seeds default Terms + Privacy pages once.
+# Remove this block after first successful run on production.
+PAGES_SEED_MARKER="$PROJECT_DIR/storage/app/.pages_seeded"
+PAGES_SEED_STATUS="Skipped"
+if [ ! -f "$PAGES_SEED_MARKER" ]; then
+    echo "Running PagesSeeder (one-shot)..."
+    if php artisan db:seed --class=PagesSeeder --force --no-interaction 2>&1; then
+        touch "$PAGES_SEED_MARKER"
+        PAGES_SEED_STATUS="Ran"
+    else
+        PAGES_SEED_STATUS="Failed"
+    fi
+fi
+# ===== END ONE-SHOT: pages_seed =====
+
 php artisan optimize:clear
 php artisan optimize
 php artisan filament:optimize
@@ -109,6 +141,8 @@ MSG="<b>Deploy Complete</b>
 <b>Commit:</b> <code>${COMMIT_SHORT}</code> ${COMMIT_MSG}
 <b>Files:</b> ${FILES_CHANGED} changed
 <b>Migration:</b> ${MIGRATE_STATUS}
+<b>WorldSeed:</b> ${WORLD_SEED_STATUS}
+<b>PagesSeed:</b> ${PAGES_SEED_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 

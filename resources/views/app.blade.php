@@ -16,6 +16,14 @@
     @endif
     @viteReactRefresh
     @vite(['resources/js/app.jsx'])
+    @if(!request()->is('admin*') && $settings?->weglot_enabled && $settings?->weglot_api_key)
+        <script src="https://cdn.weglot.com/weglot.min.js"></script>
+        <script>
+            Weglot.initialize({
+                api_key: @json($settings->weglot_api_key)
+            });
+        </script>
+    @endif
     @inertiaHead
 </head>
 <body class="antialiased">

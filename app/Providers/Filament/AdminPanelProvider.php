@@ -72,6 +72,7 @@ class AdminPanelProvider extends PanelProvider
                 __('p2p.nav.dashboard'),
                 __('p2p.nav.p2p_trading'),
                 __('p2p.nav.verification'),
+                __('page.nav.group'),
                 __('p2p.nav.settings'),
             ])
             ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\\Filament\\Clusters')
