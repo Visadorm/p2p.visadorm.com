@@ -6,6 +6,21 @@
 # Only deploys if new changes detected.
 # Trigger 6.
 # ============================================
+
+# Self-replicate to /tmp and re-exec so a mid-run `git pull` that rewrites
+# this file cannot corrupt the currently executing shell. Bash reads scripts
+# from the open file handle; if git replaces the inode, the running script
+# continues with stale content. Re-exec from /tmp avoids that entirely.
+if [ -z "$AUTO_DEPLOY_REEXEC" ]; then
+    REEXEC_SCRIPT="/tmp/auto-deploy-runner-$$.sh"
+    cp "$0" "$REEXEC_SCRIPT" 2>/dev/null && chmod +x "$REEXEC_SCRIPT" 2>/dev/null
+    if [ -x "$REEXEC_SCRIPT" ]; then
+        export AUTO_DEPLOY_REEXEC=1
+        trap "rm -f '$REEXEC_SCRIPT'" EXIT
+        exec "$REEXEC_SCRIPT" "$@"
+    fi
+fi
+
 BRANCH="main"
 
 PROJECT_DIR="/home/visadorm/p2p.visadorm.com"
