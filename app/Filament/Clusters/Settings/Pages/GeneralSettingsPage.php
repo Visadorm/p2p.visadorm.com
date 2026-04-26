@@ -46,6 +46,7 @@ class GeneralSettingsPage extends SettingsPage
     public function afterSave(): void
     {
         Cache::forget('site_settings');
+        Cache::forget('feature_flags');
     }
 
     public function form(Schema $schema): Schema
@@ -83,26 +84,25 @@ class GeneralSettingsPage extends SettingsPage
                     ])
                     ->columns(2),
 
-                Section::make(__('settings.regional.title'))
-                    ->schema([
-                        TextInput::make('default_currency')
-                            ->label(__('settings.regional.default_currency'))
-                            ->required()
-                            ->maxLength(5),
-                        TextInput::make('default_country')
-                            ->label(__('settings.regional.default_country'))
-                            ->required(),
-                    ])
-                    ->columns(2),
-
                 Section::make(__('settings.features.title'))
+                    ->description(__('settings.features.description'))
                     ->schema([
                         Toggle::make('merchant_registration_enabled')
-                            ->label(__('settings.features.merchant_registration_enabled')),
+                            ->label(__('settings.features.merchant_registration_enabled'))
+                            ->helperText(__('settings.features.merchant_registration_help')),
                         Toggle::make('p2p_trading_enabled')
-                            ->label(__('settings.features.p2p_trading_enabled')),
+                            ->label(__('settings.features.p2p_trading_enabled'))
+                            ->helperText(__('settings.features.p2p_trading_help')),
                         Toggle::make('cash_meetings_enabled')
-                            ->label(__('settings.features.cash_meetings_enabled')),
+                            ->label(__('settings.features.cash_meetings_enabled'))
+                            ->helperText(__('settings.features.cash_meetings_help')),
+                    ])
+                    ->footerActions([
+                        \Filament\Actions\Action::make('go_to_trade_settings')
+                            ->label(__('settings.features.go_to_trade_settings'))
+                            ->icon(\Filament\Support\Icons\Heroicon::OutlinedArrowRight)
+                            ->color('gray')
+                            ->url(fn () => \App\Filament\Clusters\Settings\Pages\TradeSettingsPage::getUrl()),
                     ]),
 
                 Section::make(__('settings.homepage.title'))

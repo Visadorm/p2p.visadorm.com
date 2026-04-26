@@ -62,13 +62,15 @@ abstract class MerchantNotification extends Notification implements ShouldQueue
     {
         $channels = [P2pDatabaseChannel::class]; // Always in-app
 
-        // Email: merchant must have notify_email ON + have an email + admin must enable email
-        if ($notifiable->notify_email && $notifiable->email) {
+        $adminSettings = rescue(fn () => app(NotificationSettings::class), null);
+        $emailGloballyEnabled = $adminSettings?->email_notifications_enabled ?? true;
+
+        // Email: admin master switch ON + merchant prefers email + has an email
+        if ($emailGloballyEnabled && $notifiable->notify_email && $notifiable->email) {
             $channels[] = 'mail';
         }
 
         // SMS: admin must configure Twilio + merchant must have notify_sms ON + have a phone
-        $adminSettings = rescue(fn () => app(NotificationSettings::class), null);
         $smsEnabled = $adminSettings?->sms_notifications_enabled ?? false;
 
         if ($smsEnabled && $notifiable->notify_sms && $notifiable->phone) {

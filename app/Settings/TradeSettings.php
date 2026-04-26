@@ -23,6 +23,15 @@ class TradeSettings extends Settings
     // Buyer Verification
     public string $default_buyer_verification;
 
+    // Sell flow
+    public bool $sell_enabled;
+    public int $sell_max_offers_per_wallet;
+    public float $sell_max_outstanding_usdc;
+    public float $sell_kyc_threshold_usdc;
+    public int $sell_kyc_threshold_window_days;
+    public bool $sell_cash_meeting_enabled;
+    public int $sell_default_offer_timer_minutes;
+
     public static function group(): string
     {
         return 'trade';

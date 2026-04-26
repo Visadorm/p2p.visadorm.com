@@ -332,4 +332,61 @@ export const api = {
 
     getUnreadCount: () =>
         fetch(`${API_BASE}/notifications/unread-count`, { headers: headers() }).then(handleResponse),
+
+    // Sell offers (public)
+    getSellOffers: (params = {}) => {
+        const qs = new URLSearchParams(params).toString()
+        return fetch(`${API_BASE}/sell-offers${qs ? '?' + qs : ''}`, { headers: headers() }).then(handleResponse)
+    },
+    getSellOffer: (slug) =>
+        fetch(`${API_BASE}/sell-offer/${slug}`, { headers: headers() }).then(handleResponse),
+
+    // Sell offers (auth — seller management)
+    getMySellOffers: () =>
+        fetch(`${API_BASE}/sell-offers/mine`, { headers: headers() }).then(handleResponse),
+
+    createSellOffer: (data) =>
+        fetch(`${API_BASE}/sell-offers`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(data),
+        }).then(handleResponse),
+
+    cancelSellOffer: (slug, body = {}) =>
+        fetch(`${API_BASE}/sell-offers/${slug}`, {
+            method: 'DELETE',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    // Sell trade lifecycle
+    takeSellOffer: (slug, data) =>
+        fetch(`${API_BASE}/sell-offer/${slug}/take`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(data),
+        }).then(handleResponse),
+
+    markSellPaymentSent: (tradeHash, body = {}) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/sell/mark-paid`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    getSellReleasePayload: (tradeHash) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/sell/release-payload`, { headers: headers() }).then(handleResponse),
+
+    submitSellRelease: (tradeHash, data) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/sell/release`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(data),
+        }).then(handleResponse),
+
+    openSellDispute: (tradeHash) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/sell/dispute`, {
+            method: 'POST',
+            headers: headers(),
+        }).then(handleResponse),
 };

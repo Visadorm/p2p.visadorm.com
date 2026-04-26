@@ -19,15 +19,32 @@ class ReviewsTable
         return $table
             ->columns([
                 TextColumn::make('merchant.username')
-                    ->label(__('trade.merchant'))
+                    ->label('Reviewed Merchant')
                     ->searchable()
                     ->sortable()
                     ->weight(FontWeight::Medium),
 
                 TextColumn::make('reviewer_wallet')
-                    ->label(__('trade.buyer_wallet'))
+                    ->label('Reviewer Wallet')
                     ->limit(10)
                     ->searchable(),
+
+                TextColumn::make('reviewer_role')
+                    ->label('Reviewer Role')
+                    ->badge()
+                    ->colors([
+                        'info' => 'buyer',
+                        'success' => 'seller',
+                    ]),
+
+                TextColumn::make('trade.type')
+                    ->label('Trade Type')
+                    ->badge()
+                    ->colors([
+                        'primary' => 'buy',
+                        'warning' => 'sell',
+                    ])
+                    ->placeholder('—'),
 
                 TextColumn::make('rating')
                     ->label(__('p2p.rating'))
@@ -58,6 +75,20 @@ class ReviewsTable
                         '0' => 'Visible',
                         '1' => 'Hidden',
                     ]),
+                SelectFilter::make('reviewer_role')
+                    ->options([
+                        'buyer' => 'Buyer',
+                        'seller' => 'Seller',
+                    ]),
+                SelectFilter::make('trade_type')
+                    ->label('Trade Type')
+                    ->options([
+                        'buy' => 'Buy',
+                        'sell' => 'Sell',
+                    ])
+                    ->query(fn ($query, $data) => isset($data['value']) && $data['value'] !== ''
+                        ? $query->whereHas('trade', fn ($q) => $q->where('type', $data['value']))
+                        : $query),
             ])
             ->recordActions([
                 Action::make('toggle_hidden')

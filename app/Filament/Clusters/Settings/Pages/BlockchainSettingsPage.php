@@ -85,14 +85,18 @@ class BlockchainSettingsPage extends SettingsPage
                     ->columns(2),
 
                 Section::make(__('settings.multisig.title'))
-                    ->description('Wallet addresses are set during deployment and cannot be changed here.')
+                    ->description('Reference only — these wallet addresses are baked into the deployed escrow contract. To change them, deploy a new contract and update the contract addresses above.')
                     ->schema([
                         TextInput::make('fee_wallet_address')
                             ->label(__('settings.multisig.fee_wallet_address'))
-                            ->disabled(),
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->helperText('Receives the 0.2% trade fee. Locked to contract constructor arg.'),
                         TextInput::make('admin_multisig_address')
                             ->label(__('settings.multisig.admin_multisig_address'))
-                            ->disabled(),
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->helperText('Holds DEFAULT_ADMIN_ROLE on escrow contract. Required for dispute resolution + role grants.'),
                     ])
                     ->columns(2),
             ]);

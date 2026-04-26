@@ -938,13 +938,37 @@ export default function TradeConfirm({ tradeHash }) {
             </Card>
           )}
 
-          {(reviewSubmitted || trade?.review) && tradeStatus === "completed" && (
-            <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-              <CheckCircle weight="fill" size={18} className="text-emerald-500" />
-              <span className="text-sm font-medium text-emerald-400">Review submitted</span>
-            </div>
+          {tradeStatus === "completed" && (
+            <>
+              <ReviewCard heading="Buyer's review of seller" review={trade?.review} />
+              <ReviewCard heading="Seller's review of buyer" review={trade?.merchant_review} />
+            </>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function ReviewCard({ heading, review }) {
+  if (!review) return null
+  return (
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</div>
+        <div className="flex items-center gap-0.5">
+          {[1, 2, 3, 4, 5].map(s => (
+            <Star key={s} weight={s <= review.rating ? "fill" : "regular"} size={16}
+              className={s <= review.rating ? "text-amber-400" : "text-muted-foreground/30"} />
+          ))}
+          <span className="ml-1 text-xs text-muted-foreground">{review.rating}/5</span>
+        </div>
+      </div>
+      {review.comment && (
+        <p className="mt-2 whitespace-pre-line text-sm text-foreground">{review.comment}</p>
+      )}
+      <div className="mt-2 text-xs text-muted-foreground/70">
+        Submitted {review.created_at ? new Date(review.created_at).toLocaleString() : ""}
       </div>
     </div>
   )

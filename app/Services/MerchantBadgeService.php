@@ -50,7 +50,9 @@ class MerchantBadgeService
             $decimal = $blockchain->hexToDecimal($rawBalance);
             $balance = (float) $blockchain->usdcToHuman($decimal);
 
-            return $balance > 0;
+            $threshold = max(0.0, (float) $settings->liquidity_badge_threshold);
+
+            return $balance >= $threshold && $balance > 0;
         } catch (\Throwable) {
             return false;
         }

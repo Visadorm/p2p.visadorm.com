@@ -20,7 +20,7 @@ class TradeResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $slug = 'p2p/trades';
 

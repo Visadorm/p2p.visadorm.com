@@ -65,6 +65,12 @@ function PaymentMethodsSkeleton() {
   )
 }
 
+const PROVIDERS_BY_TYPE = {
+  online_payment: ["Wise", "PayPal", "Zelle", "Cash App", "Venmo", "Revolut", "Skrill"],
+  mobile_payment: ["Apple Pay", "Google Pay", "Samsung Pay", "Cash App", "Venmo"],
+}
+const PROVIDER_OTHER = "__other__"
+
 export default function PaymentMethods() {
   const { isAuthenticated } = useWallet()
   const [methods, setMethods] = useState([])
@@ -303,19 +309,11 @@ export default function PaymentMethods() {
               </Select>
             </div>
             {formData.type !== "cash_meeting" && (
-              <div className="space-y-2">
-                <Label>Provider Name</Label>
-                <Input
-                  value={formData.provider}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, provider: e.target.value }))}
-                  placeholder={
-                    formData.type === "bank_transfer" ? "e.g., Banco Popular, Chase, BHD León"
-                    : formData.type === "online_payment" ? "e.g., Zelle, PayPal, Wise"
-                    : "e.g., M-Pesa, Cash App, Opay"
-                  }
-                  required
-                />
-              </div>
+              <ProviderField
+                type={formData.type}
+                value={formData.provider}
+                onChange={(val) => setFormData((prev) => ({ ...prev, provider: val }))}
+              />
             )}
 
             {/* ── Bank Transfer fields ── */}
@@ -455,3 +453,65 @@ export default function PaymentMethods() {
 }
 
 PaymentMethods.layout = (page) => <DashboardLayout>{page}</DashboardLayout>
+
+function ProviderField({ type, value, onChange }) {
+  const curated = PROVIDERS_BY_TYPE[type]
+
+  // Bank transfer (or any type without curated list) → free text only
+  if (!curated) {
+    return (
+      <div className="space-y-2">
+        <Label>Provider / Bank Name</Label>
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g., Banco Popular, Chase, BHD León"
+          required
+        />
+      </div>
+    )
+  }
+
+  const isCuratedMatch = value && curated.includes(value)
+  // Show "Other" picker explicitly only when user has typed a custom value
+  const [otherPicked, setOtherPicked] = useState(value !== "" && !isCuratedMatch)
+
+  const selectValue = isCuratedMatch ? value : (otherPicked ? PROVIDER_OTHER : "")
+
+  return (
+    <div className="space-y-2">
+      <Label>Provider</Label>
+      <Select
+        value={selectValue}
+        onValueChange={(val) => {
+          if (val === PROVIDER_OTHER) {
+            setOtherPicked(true)
+            onChange("")
+          } else {
+            setOtherPicked(false)
+            onChange(val)
+          }
+        }}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select provider" />
+        </SelectTrigger>
+        <SelectContent>
+          {curated.map((p) => (
+            <SelectItem key={p} value={p}>{p}</SelectItem>
+          ))}
+          <SelectItem value={PROVIDER_OTHER}>Other…</SelectItem>
+        </SelectContent>
+      </Select>
+      {otherPicked && (
+        <Input
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Provider name"
+          required
+        />
+      )}
+    </div>
+  )
+}

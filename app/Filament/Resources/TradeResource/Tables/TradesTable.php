@@ -36,6 +36,13 @@ class TradesTable
                     ->searchable()
                     ->toggleable(),
 
+                TextColumn::make('seller_wallet')
+                    ->label(__('trade.seller_wallet'))
+                    ->limit(10)
+                    ->searchable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('amount_usdc')
                     ->label(__('trade.amount_usdc'))
                     ->money('usd')

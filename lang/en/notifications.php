@@ -44,6 +44,7 @@ return [
         'buyer_id_submitted' => 'Buyer has submitted their ID',
         'dispute_opened' => 'A dispute has been opened',
         'kyc_reviewed' => 'Your KYC document has been reviewed',
+        'review_received' => 'You received a new review',
     ],
 
     // Notification Bodies
@@ -58,6 +59,7 @@ return [
         'trade_completed' => 'Trade #:hash completed. :amount USDC released.',
         'trade_expired' => 'Trade #:hash has expired. Escrow unlocked.',
         'kyc_reviewed' => 'Your :document_type document has been :status.',
+        'review_received' => 'Trade #:trade_hash: :reviewer_role rated you :rating_stars (:rating/5). ":comment"',
     ],
 
     // Action Button Text
@@ -67,6 +69,7 @@ return [
         'view_proof' => 'View Proof',
         'view_trades' => 'View Trades',
         'view_kyc' => 'View KYC',
+        'view_reviews' => 'View Reviews',
     ],
 
 ];

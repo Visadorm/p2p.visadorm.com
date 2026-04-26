@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ReviewSubmitted;
 use App\Http\Controllers\Controller;
 use App\Enums\TradeStatus;
 use App\Models\Merchant;
@@ -49,14 +50,23 @@ class ReviewController extends Controller
 
         $reviewerRole = $isBuyer ? 'buyer' : 'seller';
 
-        // Check if this party already left a review
-        $exists = Review::where('trade_id', $trade->id)
+        $existsForThisWallet = Review::where('trade_id', $trade->id)
+            ->where('reviewer_wallet', $userWallet)
+            ->exists();
+
+        if ($existsForThisWallet) {
+            return response()->json([
+                'message' => __('p2p.review_already_exists'),
+            ], 422);
+        }
+
+        $existsForThisRole = Review::where('trade_id', $trade->id)
             ->where('reviewer_role', $reviewerRole)
             ->exists();
 
-        if ($exists) {
+        if ($existsForThisRole) {
             return response()->json([
-                'message' => __('p2p.review_already_exists'),
+                'message' => __('p2p.review_role_already_submitted'),
             ], 422);
         }
 
@@ -90,6 +100,8 @@ class ReviewController extends Controller
                 'message' => __('p2p.review_already_exists'),
             ], 422);
         }
+
+        ReviewSubmitted::dispatch($review);
 
         return response()->json([
             'data' => $review,

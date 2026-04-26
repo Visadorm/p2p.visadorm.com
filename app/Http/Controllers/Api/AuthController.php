@@ -78,6 +78,14 @@ class AuthController extends Controller
 
         Cache::forget('wallet_nonce:' . $walletAddress);
 
+        $existingMerchant = Merchant::where('wallet_address', $walletAddress)->first();
+
+        if (! $existingMerchant && ! app(\App\Settings\GeneralSettings::class)->merchant_registration_enabled) {
+            return response()->json([
+                'message' => __('p2p.merchant_registration_disabled'),
+            ], 403);
+        }
+
         $user = User::firstOrCreate(
             ['wallet_address' => $walletAddress],
             ['name' => Str::substr($walletAddress, 0, 10)]
@@ -85,18 +93,17 @@ class AuthController extends Controller
 
         $defaultRank = MerchantRank::orderBy('sort_order')->first();
 
-        $merchant = Merchant::firstOrCreate(
-            ['wallet_address' => $walletAddress],
-            [
-                'username' => 'user_' . substr($walletAddress, 2, 8),
-                'rank_id' => $defaultRank?->id,
-                'is_active' => true,
-                'member_since' => now(),
-            ]
-        );
+        $merchant = $existingMerchant ?? Merchant::create([
+            'wallet_address' => $walletAddress,
+            'username' => 'user_' . substr($walletAddress, 2, 8),
+            'rank_id' => $defaultRank?->id,
+            'buyer_verification' => app(\App\Settings\TradeSettings::class)->default_buyer_verification,
+            'is_active' => true,
+            'member_since' => now(),
+        ]);
 
         // Notify admins on new merchant registration
-        if ($merchant->wasRecentlyCreated) {
+        if (! $existingMerchant && $merchant->wasRecentlyCreated) {
             \App\Listeners\NotifyAdminOnMerchantRegistered::notify(
                 $merchant->username,
                 substr($walletAddress, 0, 10) . '...'

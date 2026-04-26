@@ -96,8 +96,13 @@ class TradeController extends Controller
      */
     public function initiate(Request $request, string $slug): JsonResponse
     {
+        $tradeSettings = app(\App\Settings\TradeSettings::class);
         $validated = $request->validate([
-            'amount_usdc' => ['required', 'numeric', 'min:1'],
+            'amount_usdc' => [
+                'required', 'numeric',
+                'min:' . max(1, (float) $tradeSettings->global_min_trade),
+                'max:' . max(1, (float) $tradeSettings->global_max_trade),
+            ],
             'currency_code' => ['required', 'string', 'max:3'],
             'payment_method' => ['required', 'string', 'max:100'],
             'escrow_tx_hash' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -143,6 +148,20 @@ class TradeController extends Controller
         if (! $hasPaymentMethod) {
             return response()->json([
                 'message' => __('trade.error.unsupported_payment_method'),
+            ], 422);
+        }
+
+        $methodRow = $merchant->paymentMethods()->where('is_active', true)
+            ->where(fn ($q) => $q->where('id', $validated['payment_method'])
+                ->orWhere('provider', $validated['payment_method'])
+                ->orWhere('label', $validated['payment_method'])
+                ->orWhere('type', $validated['payment_method']))
+            ->first();
+
+        if ($methodRow && ($methodRow->type?->value ?? (string) $methodRow->type) === 'cash_meeting'
+            && ! app(\App\Settings\GeneralSettings::class)->cash_meetings_enabled) {
+            return response()->json([
+                'message' => __('p2p.cash_meetings_disabled'),
             ], 422);
         }
 
@@ -318,18 +337,25 @@ class TradeController extends Controller
         }
 
         $data = $trade->toArray();
+        $data['status_label'] = $trade->status?->getLabel();
 
-        // Include merchant's payment method details so buyer knows WHERE to send fiat
-        $paymentMethod = $trade->merchant->paymentMethods()
-            ->where(function ($q) use ($trade) {
-                $q->where('provider', $trade->payment_method)
-                  ->orWhere('label', $trade->payment_method);
-            })
-            ->first();
+        if (! empty($trade->seller_payment_snapshot)) {
+            $snapshot = $trade->seller_payment_snapshot;
+            $data['payment_method_details'] = $snapshot['details'] ?? null;
+            $data['payment_method_label'] = $snapshot['label'] ?? null;
+            $data['safety_note'] = $snapshot['safety_note'] ?? null;
+        } else {
+            $paymentMethod = $trade->merchant->paymentMethods()
+                ->where(function ($q) use ($trade) {
+                    $q->where('provider', $trade->payment_method)
+                      ->orWhere('label', $trade->payment_method);
+                })
+                ->first();
 
-        $data['payment_method_details'] = $paymentMethod?->details;
-        $data['payment_method_label'] = $paymentMethod?->label;
-        $data['safety_note'] = $paymentMethod?->safety_note;
+            $data['payment_method_details'] = $paymentMethod?->details;
+            $data['payment_method_label'] = $paymentMethod?->label;
+            $data['safety_note'] = $paymentMethod?->safety_note;
+        }
 
         // Show masked merchant identity for verified merchants (seller → buyer)
         $m = $trade->merchant;

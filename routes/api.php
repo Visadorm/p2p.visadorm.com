@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\MerchantPaymentMethodController;
 use App\Http\Controllers\Api\MerchantTradeController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\SellOfferController;
+use App\Http\Controllers\Api\SellTradeController;
 use App\Http\Controllers\Api\TradeController;
 use App\Http\Controllers\Api\TradingLinkController;
 use App\Http\Middleware\EnsureWalletAuthenticated;
@@ -64,6 +66,14 @@ Route::get('trade/{tradeHash}/verify', [TradeController::class, 'verify'])
     ->middleware('throttle:30,1')
     ->name('api.trade.verify');
 
+// Public sell offers
+Route::get('sell-offers', [SellOfferController::class, 'index'])
+    ->middleware('throttle:60,1')
+    ->name('api.sell-offers.index');
+Route::get('sell-offer/{slug}', [SellOfferController::class, 'show'])
+    ->middleware('throttle:60,1')
+    ->name('api.sell-offer.show');
+
 /*
 |--------------------------------------------------------------------------
 | Authenticated Routes (Sanctum + Wallet Middleware)
@@ -106,7 +116,7 @@ Route::middleware(['auth:sanctum', EnsureWalletAuthenticated::class])->group(fun
     });
 
     // Trade Actions (buyer) — rate-limited to prevent spam
-    Route::middleware('throttle:10,5')->group(function () {
+    Route::middleware(['throttle:10,5', \App\Http\Middleware\EnsureP2pTradingEnabled::class])->group(function () {
         Route::post('trade/{slug}/initiate', [TradeController::class, 'initiate'])->name('api.trade.initiate');
         Route::post('trade/{tradeHash}/paid', [TradeController::class, 'markPaid'])->name('api.trade.paid');
         Route::post('trade/{tradeHash}/cancel', [TradeController::class, 'cancel'])->name('api.trade.cancel');
@@ -148,6 +158,23 @@ Route::middleware(['auth:sanctum', EnsureWalletAuthenticated::class])->group(fun
     Route::post('admin/trade/{tradeHash}/dispute/resolve', [DisputeController::class, 'resolve'])
         ->middleware('throttle:10,1')
         ->name('api.dispute.resolve');
+
+    // Sell offers — seller-side management
+    Route::prefix('sell-offers')->name('api.sell-offers.')->group(function () {
+        Route::get('mine', [SellOfferController::class, 'mine'])->name('mine');
+        Route::post('/', [SellOfferController::class, 'store'])->middleware(['throttle:10,5', \App\Http\Middleware\EnsureP2pTradingEnabled::class])->name('store');
+        Route::delete('{slug}', [SellOfferController::class, 'destroy'])->middleware('throttle:10,5')->name('destroy');
+    });
+
+    // Sell trade lifecycle (seller-direct via meta-tx + buyer-direct on-chain)
+    Route::middleware(['throttle:10,5', \App\Http\Middleware\EnsureP2pTradingEnabled::class])->group(function () {
+        Route::post('sell-offer/{slug}/take', [SellTradeController::class, 'take'])->name('api.sell-trade.take');
+        Route::post('trade/{tradeHash}/sell/mark-paid', [SellTradeController::class, 'markPaid'])->name('api.sell-trade.mark-paid');
+        Route::post('trade/{tradeHash}/sell/release', [SellTradeController::class, 'release'])->name('api.sell-trade.release');
+        Route::post('trade/{tradeHash}/sell/dispute', [SellTradeController::class, 'dispute'])->name('api.sell-trade.dispute');
+    });
+    Route::get('trade/{tradeHash}/sell/release-payload', [SellTradeController::class, 'releasePayload'])
+        ->name('api.sell-trade.release-payload');
 
     // Notifications
     Route::prefix('notifications')->name('api.notifications.')->group(function () {

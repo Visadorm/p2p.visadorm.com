@@ -93,33 +93,63 @@ export default function Reviews() {
       const res = await api.getMerchantTrades("status=completed&per_page=50&role=all")
       const tradesData = res.data?.data || res.data || []
 
-      // Extract reviews with role context
-      const extractedReviews = tradesData
-        .filter((trade) => trade.review)
-        .map((trade) => {
-          const isMerchant = trade.merchant_id === merchant?.id
-          const merchantName = trade.merchant?.username || "Merchant"
-          return {
-            id: trade.review.id || trade.id,
-            role: isMerchant ? "received" : "given",
-            // For received reviews: show the buyer. For given reviews: show the merchant.
-            person: isMerchant
-              ? truncateAddress(trade.buyer_wallet)
-              : merchantName,
-            personLink: isMerchant ? null : `/merchant/${merchantName}`,
-            initials: isMerchant
-              ? getInitials(truncateAddress(trade.buyer_wallet))
-              : getInitials(merchantName),
-            rating: trade.review.rating || 0,
-            comment: trade.review.comment || trade.review.text || "",
-            amount: `$${Number(trade.amount_usdc || 0).toLocaleString()} USDC`,
-            date: trade.review.created_at
-              ? new Date(trade.review.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-              : trade.created_at
-              ? new Date(trade.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-              : "—",
+      // Each trade can produce up to 2 review entries:
+      //   - trade.review = buyer's review of seller
+      //   - trade.merchant_review = seller's review of buyer
+      // Build a flat list, tagging each with whether current user RECEIVED or GAVE it.
+      const myWallet = merchant?.wallet_address?.toLowerCase()
+      const merchantName = (t) => t.merchant?.username || "Merchant"
+      const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"
+
+      const entries = []
+      tradesData.forEach((trade) => {
+        const tradeMerchantWallet = trade.merchant?.wallet_address?.toLowerCase()
+        const tradeBuyerWallet = trade.buyer_wallet?.toLowerCase()
+        const userIsTradeMerchant = myWallet && tradeMerchantWallet === myWallet
+        const userIsTradeBuyer = myWallet && tradeBuyerWallet === myWallet
+
+        if (trade.review) {
+          // Buyer (reviewer) reviewed the seller (subject = trade.merchant)
+          const userReceived = userIsTradeMerchant
+          const userGave = userIsTradeBuyer
+          if (userReceived || userGave) {
+            entries.push({
+              id: `r-${trade.review.id || trade.id}`,
+              role: userReceived ? "received" : "given",
+              person: userReceived ? truncateAddress(trade.buyer_wallet) : merchantName(trade),
+              personLink: userReceived ? null : `/merchant/${merchantName(trade)}`,
+              initials: userReceived ? getInitials(truncateAddress(trade.buyer_wallet)) : getInitials(merchantName(trade)),
+              rating: trade.review.rating || 0,
+              comment: trade.review.comment || trade.review.text || "",
+              amount: `$${Number(trade.amount_usdc || 0).toLocaleString()} USDC`,
+              date: fmtDate(trade.review.created_at || trade.created_at),
+              tradeType: trade.type || "buy",
+            })
           }
-        })
+        }
+
+        if (trade.merchant_review) {
+          // Seller (reviewer) reviewed the buyer (subject = trade.buyer_wallet)
+          const userReceived = userIsTradeBuyer
+          const userGave = userIsTradeMerchant
+          if (userReceived || userGave) {
+            entries.push({
+              id: `m-${trade.merchant_review.id || trade.id}`,
+              role: userReceived ? "received" : "given",
+              person: userReceived ? merchantName(trade) : truncateAddress(trade.buyer_wallet),
+              personLink: userReceived ? `/merchant/${merchantName(trade)}` : null,
+              initials: userReceived ? getInitials(merchantName(trade)) : getInitials(truncateAddress(trade.buyer_wallet)),
+              rating: trade.merchant_review.rating || 0,
+              comment: trade.merchant_review.comment || trade.merchant_review.text || "",
+              amount: `$${Number(trade.amount_usdc || 0).toLocaleString()} USDC`,
+              date: fmtDate(trade.merchant_review.created_at || trade.created_at),
+              tradeType: trade.type || "buy",
+            })
+          }
+        }
+      })
+
+      const extractedReviews = entries
 
       setReviews(extractedReviews)
 

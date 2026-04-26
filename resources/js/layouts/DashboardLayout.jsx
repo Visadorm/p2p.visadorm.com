@@ -4,6 +4,7 @@ import {
   House,
   Vault,
   ArrowsLeftRight,
+  ArrowUpRight,
   CreditCard,
   Link as LinkIcon,
   CurrencyDollar,
@@ -45,6 +46,7 @@ const navItems = [
   { label: "Trades", icon: ArrowsLeftRight, path: "/trades" },
   { label: "Payment Methods", icon: CreditCard, path: "/payments" },
   { label: "Trading Links", icon: LinkIcon, path: "/links" },
+  { label: "Sell Offers", icon: ArrowUpRight, path: "/sell/dashboard" },
   { label: "Instructions", icon: NotePencil, path: "/instructions" },
   { label: "Currency & Markup", icon: CurrencyDollar, path: "/currency" },
   { label: "Buyer Verification", icon: ShieldCheck, path: "/verification" },
@@ -60,6 +62,8 @@ const pageTitles = {
   "/trades": "Trades",
   "/payments": "Payment Methods",
   "/links": "Trading Links",
+  "/sell/dashboard": "Sell Offers",
+  "/sell/create": "Create Sell Offer",
   "/instructions": "Instructions",
   "/currency": "Currency & Markup",
   "/verification": "Buyer Verification",
@@ -98,9 +102,9 @@ export default function DashboardLayout({ children }) {
     <SidebarProvider>
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader>
-          <div className="px-3 py-1">
+          <Link href="/dashboard" className="block px-3 py-1">
             <SiteLogo size="lg" />
-          </div>
+          </Link>
         </SidebarHeader>
         <Separator />
         <SidebarContent>

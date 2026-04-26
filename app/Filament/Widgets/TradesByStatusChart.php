@@ -30,17 +30,28 @@ class TradesByStatusChart extends ChartWidget
             'pending' => '#9ca3af',
             'escrow_locked' => '#3b82f6',
             'payment_sent' => '#f59e0b',
+            'payment_confirmed' => '#10b981',
             'completed' => '#22c55e',
             'disputed' => '#ef4444',
             'cancelled' => '#6b7280',
             'expired' => '#d1d5db',
+            'sell_funded' => '#8b5cf6',
+            'in_progress' => '#0ea5e9',
+            'awaiting_payment' => '#fbbf24',
+            'verified_by_seller' => '#a78bfa',
+            'released' => '#34d399',
+            'resolved_buyer' => '#06b6d4',
+            'resolved_seller' => '#84cc16',
+            'resolved' => '#16a34a',
         ];
 
+        $bgColors = [];
         foreach ($statuses as $status) {
             $count = Trade::where('status', $status)->count();
             if ($count > 0) {
                 $counts[] = $count;
                 $labels[] = $status->getLabel();
+                $bgColors[] = $colors[$status->value] ?? '#6b7280';
             }
         }
 
@@ -48,7 +59,7 @@ class TradesByStatusChart extends ChartWidget
             'datasets' => [
                 [
                     'data' => $counts,
-                    'backgroundColor' => array_slice(array_values($colors), 0, count($counts)),
+                    'backgroundColor' => $bgColors,
                 ],
             ],
             'labels' => $labels,

@@ -42,14 +42,23 @@ git pull origin "$BRANCH"
 
 FILES_CHANGED=$(git diff HEAD@{1} --name-only 2>/dev/null | wc -l | tr -d ' ')
 
-echo "[3/9] Installing PHP dependencies..."
+echo "[3/10] Installing PHP dependencies..."
 if git diff HEAD@{1} --name-only 2>/dev/null | grep -q "composer.lock"; then
     composer install --no-dev --no-interaction --optimize-autoloader
 else
     echo "       No composer changes, skipping..."
 fi
 
-echo "[4/9] Running migrations..."
+echo "[4/10] Verifying frontend build assets present..."
+if [ -f public/build/manifest.json ]; then
+    BUILD_STATUS="Present"
+    echo "       OK — public/build/manifest.json found"
+else
+    BUILD_STATUS="MISSING"
+    echo "       WARNING — public/build/manifest.json not found. Run 'npm run build' locally then re-push."
+fi
+
+echo "[5/10] Running migrations..."
 MIGRATE_OUTPUT=$(php artisan migrate --force --no-interaction 2>&1)
 echo "$MIGRATE_OUTPUT"
 if echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
@@ -58,21 +67,29 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-echo "[5/9] Clearing caches..."
-php artisan optimize:clear
+echo "[6/10] Backfilling settings (Spatie crash recovery + address rotations)..."
+if [ -f scripts/backfill-settings.php ]; then
+    BACKFILL_OUTPUT=$(php scripts/backfill-settings.php 2>&1 || true)
+    echo "       $BACKFILL_OUTPUT"
+    BACKFILL_STATUS=$(echo "$BACKFILL_OUTPUT" | tail -1)
+else
+    BACKFILL_STATUS="script missing"
+fi
 
-echo "[6/9] Rebuilding caches..."
+echo "[7/10] Ensuring storage symlink..."
+php artisan storage:link --force 2>&1 | tail -2
+
+echo "[8/10] Clearing + rebuilding caches..."
+php artisan optimize:clear
 php artisan optimize
 php artisan filament:optimize
 
-echo "[7/9] Restarting queue workers..."
+echo "[9/10] Restarting queue workers + setting permissions..."
 php artisan queue:restart
-
-echo "[8/9] Setting permissions..."
 chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
 
-echo "[9/9] Purging Cloudflare cache..."
+echo "[10/10] Purging Cloudflare cache..."
 CLOUDFLARE_API_TOKEN=$(grep '^CLOUDFLARE_API_TOKEN=' .env 2>/dev/null | cut -d'=' -f2 || true)
 CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-cfat_moNoQPL0lI4H6ITyw2ruADDXpEA3s2sj6eo1opwNa31e61ec}"
 CF_STATUS="Skipped"
@@ -109,7 +126,9 @@ MSG="<b>Deploy Complete (manual)</b>
 <b>Branch:</b> ${BRANCH}
 <b>Commit:</b> <code>${COMMIT_SHORT}</code> ${COMMIT_MSG}
 <b>Files:</b> ${FILES_CHANGED} changed
+<b>Frontend:</b> ${BUILD_STATUS}
 <b>Migration:</b> ${MIGRATE_STATUS}
+<b>Backfill:</b> ${BACKFILL_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 

@@ -1,0 +1,11 @@
+{
+  "network": "baseSepolia",
+  "deployer": "0x5b2D19c7764B668974A5D9DD28A441681Df99652",
+  "usdc": "0xe3B1038eecea95053256D0e5d52D11A0703D1c4F",
+  "soulboundTradeNFT": "0xD81a5b95550E94C7ec995af6BaaD4ab7281B5FFD",
+  "tradeEscrowContract": "0x8Ef8256f0dA241918A2c8e055A7e424DC88ab3C2",
+  "feeWallet": "0xb0858aa1264d5d5433dac742b2c30abfc7798736",
+  "admin": "0x91511adcbbe32bc5202b73741bcd7adfbf9ab00e",
+  "operator": "0x7e5ca1bb6232c80469237eaea094f21029b800ab",
+  "note": "Escrow redeploy — reused existing USDC + NFT."
+}

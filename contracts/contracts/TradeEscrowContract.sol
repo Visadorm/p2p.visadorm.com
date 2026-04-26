@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./SoulboundTradeNFT.sol";
 
 /**
@@ -20,7 +22,7 @@ import "./SoulboundTradeNFT.sol";
  * Fee: 0.2% (20 basis points) per trade, sent to feeWallet.
  * Stake: $5 USDC on public trades (returned after completion).
  */
-contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
+contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20;
 
     // ─── Roles ───
@@ -49,10 +51,15 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         Completed,
         Disputed,
         Cancelled,
-        Resolved
+        Resolved,
+        SellFunded
     }
 
-    // ─── Structs ───
+    enum TradeKind {
+        Buy,
+        Sell
+    }
+
     struct Trade {
         address merchant;
         address buyer;
@@ -63,12 +70,19 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         bool isPrivate;
         uint256 createdAt;
         uint256 expiresAt;
+        address seller;
+        TradeKind kind;
     }
 
     // ─── State ───
     mapping(bytes32 => Trade) public trades;
     mapping(address => uint256) public merchantEscrowBalance;
     mapping(address => uint256) public merchantLockedInTrades;
+    mapping(address => uint256) public sellerNonce;
+
+    bytes32 private constant SELL_RELEASE_TYPEHASH = keccak256(
+        "ReleaseSellEscrow(bytes32 tradeId,uint256 nonce,uint256 deadline)"
+    );
 
     // ─── Events ───
     event EscrowDeposited(address indexed merchant, uint256 amount);
@@ -86,6 +100,18 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
     event DisputeOpened(bytes32 indexed tradeId, address indexed openedBy);
     event DisputeResolved(bytes32 indexed tradeId, address indexed winner, uint256 amount);
 
+    event SellTradeFunded(
+        bytes32 indexed tradeId,
+        address indexed seller,
+        uint256 amount,
+        uint256 expiresAt,
+        bool isPrivate
+    );
+    event SellTradeTaken(bytes32 indexed tradeId, address indexed buyer);
+    event SellEscrowReleased(bytes32 indexed tradeId, uint256 fee, bool viaMetaTx);
+    event SellOfferCancelled(bytes32 indexed tradeId, address indexed seller);
+    event ExpiredTradeCancelled(bytes32 indexed tradeId);
+
     // ─── Constructor ───
     constructor(
         address _usdcToken,
@@ -93,7 +119,7 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         address _tradeNFT,
         address _admin,
         address _operator
-    ) {
+    ) EIP712("VisadormP2P", "1") {
         require(_usdcToken != address(0), "Invalid USDC address");
         require(_feeWallet != address(0), "Invalid fee wallet");
         require(_tradeNFT != address(0), "Invalid NFT address");
@@ -194,7 +220,9 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
             status: TradeStatus.EscrowLocked,
             isPrivate: isPrivate,
             createdAt: block.timestamp,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            seller: merchant,
+            kind: TradeKind.Buy
         });
 
         emit TradeCreated(tradeId, merchant, buyer, amount, isPrivate);
@@ -369,6 +397,195 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         require(tokenId != 0, "No NFT for trade");
 
         tradeNFT.burn(tokenId);
+    }
+
+    // ─── Sell Flow (seller-direct authority) ───
+
+    function fundSellTrade(
+        bytes32 tradeId,
+        uint256 amount,
+        bool isPrivate,
+        uint256 expiresAt
+    ) external nonReentrant whenNotPaused {
+        require(trades[tradeId].status == TradeStatus.None, "Trade already exists");
+        require(amount >= MIN_TRADE_AMOUNT, "Below minimum trade amount");
+        require(expiresAt > block.timestamp, "Expiry must be in future");
+
+        usdcToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        trades[tradeId] = Trade({
+            merchant: address(0),
+            buyer: address(0),
+            amount: amount,
+            stakeAmount: 0,
+            stakePaidBy: address(0),
+            status: TradeStatus.SellFunded,
+            isPrivate: isPrivate,
+            createdAt: block.timestamp,
+            expiresAt: expiresAt,
+            seller: msg.sender,
+            kind: TradeKind.Sell
+        });
+
+        emit SellTradeFunded(tradeId, msg.sender, amount, expiresAt, isPrivate);
+    }
+
+    function takeSellTrade(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(trade.status == TradeStatus.SellFunded, "Offer not available");
+        require(block.timestamp <= trade.expiresAt, "Offer expired");
+        require(msg.sender != trade.seller, "Seller cannot take own offer");
+
+        if (!trade.isPrivate) {
+            usdcToken.safeTransferFrom(msg.sender, address(this), STAKE_AMOUNT);
+            trade.stakeAmount = STAKE_AMOUNT;
+            trade.stakePaidBy = msg.sender;
+        }
+
+        trade.buyer = msg.sender;
+        trade.status = TradeStatus.EscrowLocked;
+
+        emit SellTradeTaken(tradeId, msg.sender);
+    }
+
+    function markSellPaymentSent(bytes32 tradeId) external whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(trade.status == TradeStatus.EscrowLocked, "Invalid trade status");
+        require(msg.sender == trade.buyer, "Only buyer can mark payment sent");
+
+        trade.status = TradeStatus.PaymentSent;
+
+        emit PaymentMarkedSent(tradeId);
+    }
+
+    function releaseSellEscrow(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(msg.sender == trade.seller, "Only seller can release");
+        _settleSellRelease(trade, tradeId, false);
+    }
+
+    function executeMetaSellRelease(
+        bytes32 tradeId,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata sellerSignature
+    ) external nonReentrant whenNotPaused onlyRole(OPERATOR_ROLE) {
+        require(block.timestamp <= deadline, "Signature expired");
+
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(nonce == sellerNonce[trade.seller], "Invalid nonce");
+
+        bytes32 structHash = keccak256(abi.encode(SELL_RELEASE_TYPEHASH, tradeId, nonce, deadline));
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address recovered = ECDSA.recover(digest, sellerSignature);
+        require(recovered == trade.seller, "Bad seller signature");
+
+        sellerNonce[trade.seller] = nonce + 1;
+
+        _settleSellRelease(trade, tradeId, true);
+    }
+
+    function openSellDispute(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(
+            trade.status == TradeStatus.EscrowLocked || trade.status == TradeStatus.PaymentSent,
+            "Invalid trade status"
+        );
+        require(
+            msg.sender == trade.seller || msg.sender == trade.buyer,
+            "Not a party to this trade"
+        );
+
+        trade.status = TradeStatus.Disputed;
+        emit DisputeOpened(tradeId, msg.sender);
+    }
+
+    function cancelSellOffer(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(trade.status == TradeStatus.SellFunded, "Offer no longer cancellable by seller");
+        require(msg.sender == trade.seller, "Only seller can cancel own offer");
+
+        trade.status = TradeStatus.Cancelled;
+        usdcToken.safeTransfer(trade.seller, trade.amount);
+
+        emit SellOfferCancelled(tradeId, trade.seller);
+    }
+
+    function cancelExpiredSellTrade(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(
+            trade.status == TradeStatus.SellFunded || trade.status == TradeStatus.EscrowLocked,
+            "Trade not eligible for expiry cancel"
+        );
+        require(block.timestamp > trade.expiresAt, "Trade not expired");
+
+        trade.status = TradeStatus.Cancelled;
+        usdcToken.safeTransfer(trade.seller, trade.amount);
+
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+
+        emit ExpiredTradeCancelled(tradeId);
+    }
+
+    function resolveSellDispute(
+        bytes32 tradeId,
+        address winner
+    ) external nonReentrant onlyRole(ADMIN_ROLE) {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not a sell trade");
+        require(trade.status == TradeStatus.Disputed, "Trade not in dispute");
+        require(winner == trade.seller || winner == trade.buyer, "Winner must be seller or buyer");
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 winnerAmount = trade.amount - fee;
+
+        trade.status = TradeStatus.Resolved;
+
+        usdcToken.safeTransfer(winner, winnerAmount);
+
+        if (fee > 0) {
+            usdcToken.safeTransfer(feeWallet, fee);
+        }
+
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+
+        emit DisputeResolved(tradeId, winner, winnerAmount);
+    }
+
+    function _settleSellRelease(Trade storage trade, bytes32 tradeId, bool viaMetaTx) private {
+        require(
+            trade.status == TradeStatus.EscrowLocked || trade.status == TradeStatus.PaymentSent,
+            "Invalid trade status"
+        );
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 buyerAmount = trade.amount - fee;
+
+        trade.status = TradeStatus.Completed;
+
+        usdcToken.safeTransfer(trade.buyer, buyerAmount);
+
+        if (fee > 0) {
+            usdcToken.safeTransfer(feeWallet, fee);
+        }
+
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+
+        emit SellEscrowReleased(tradeId, fee, viaMetaTx);
+        emit TradeCompleted(tradeId, fee);
     }
 
     // ─── Emergency ───

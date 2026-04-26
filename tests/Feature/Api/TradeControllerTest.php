@@ -84,7 +84,7 @@ class TradeControllerTest extends TestCase
             'type' => 'bank_transfer',
             'provider' => 'bank_transfer',
             'label' => 'Bank Transfer',
-            'details' => json_encode(['bank' => 'Test Bank']),
+            'details' => ['bank' => 'Test Bank'],
             'is_active' => true,
         ]);
     }

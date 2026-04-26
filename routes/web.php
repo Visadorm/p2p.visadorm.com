@@ -55,6 +55,31 @@ Route::get('/merchant/{username}', function (string $username) {
     return Inertia::render('Merchant/Profile', ['username' => $username]);
 })->name('merchant.profile');
 
+// Public — Sell marketplace + offer details
+Route::get('/sell', function () {
+    return Inertia::render('Sell/Marketplace');
+})->name('sell.marketplace');
+
+Route::get('/sell/o/{slug}', function (string $slug) {
+    return Inertia::render('Sell/OfferDetails', ['slug' => $slug]);
+})->name('sell.offer');
+
+Route::get('/sell/create', function () {
+    return Inertia::render('Sell/Create');
+})->name('sell.create');
+
+Route::get('/sell/dashboard', function () {
+    return Inertia::render('Sell/Dashboard');
+})->name('sell.dashboard');
+
+Route::get('/sell/trade/{tradeHash}', function (string $tradeHash) {
+    return Inertia::render('Sell/TradeRoom', ['tradeHash' => $tradeHash]);
+})->name('sell.trade');
+
+Route::get('/sell/trade/{tradeHash}/release', function (string $tradeHash) {
+    return Inertia::render('Sell/Release', ['tradeHash' => $tradeHash]);
+})->name('sell.release');
+
 // Short URL — primary trading link (redirects to merchant profile)
 Route::get('/m/{slug}', function (string $slug) {
     $link = \App\Models\MerchantTradingLink::where('slug', $slug)

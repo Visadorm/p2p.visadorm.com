@@ -6,9 +6,11 @@ use App\Filament\Clusters\Settings;
 use App\Settings\TradeSettings;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Pages\SettingsPage;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Cache;
 
 class TradeSettingsPage extends SettingsPage
 {
@@ -26,6 +28,11 @@ class TradeSettingsPage extends SettingsPage
     public function getTitle(): string
     {
         return __('settings.trade');
+    }
+
+    public function afterSave(): void
+    {
+        Cache::forget('feature_flags');
     }
 
     public function form(Schema $schema): Schema
@@ -98,6 +105,32 @@ class TradeSettingsPage extends SettingsPage
                             ])
                             ->required(),
                     ]),
+
+                Section::make(__('settings.sell.title'))
+                    ->schema([
+                        Toggle::make('sell_enabled')
+                            ->label(__('settings.sell.enabled'))
+                            ->helperText(__('settings.sell.enabled_help')),
+                        \Filament\Forms\Components\Placeholder::make('cash_sell_status')
+                            ->label(__('settings.sell.cash_meeting_enabled'))
+                            ->content(__('settings.sell.cash_sell_coming_soon')),
+                        TextInput::make('sell_max_offers_per_wallet')
+                            ->label(__('settings.sell.max_offers_per_wallet'))
+                            ->numeric()->minValue(1)->required(),
+                        TextInput::make('sell_max_outstanding_usdc')
+                            ->label(__('settings.sell.max_outstanding_usdc'))
+                            ->numeric()->minValue(0)->required(),
+                        TextInput::make('sell_kyc_threshold_usdc')
+                            ->label(__('settings.sell.kyc_threshold_usdc'))
+                            ->numeric()->minValue(0)->required(),
+                        TextInput::make('sell_kyc_threshold_window_days')
+                            ->label(__('settings.sell.kyc_threshold_window_days'))
+                            ->numeric()->minValue(1)->required(),
+                        TextInput::make('sell_default_offer_timer_minutes')
+                            ->label(__('settings.sell.default_offer_timer_minutes'))
+                            ->numeric()->minValue(1)->required(),
+                    ])
+                    ->columns(2),
             ]);
     }
 }

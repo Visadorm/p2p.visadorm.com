@@ -65,7 +65,8 @@ class MerchantForm
                             ->label(__('merchant.trade_timer'))
                             ->numeric()
                             ->minValue(1)
-                            ->maxValue(120),
+                            ->maxValue(fn () => max(1, (int) app(\App\Settings\TradeSettings::class)->max_trade_timer_minutes))
+                            ->helperText(fn () => 'Max allowed by platform: ' . (int) app(\App\Settings\TradeSettings::class)->max_trade_timer_minutes . ' minutes'),
 
                         Toggle::make('is_active')
                             ->label(__('merchant.is_active')),

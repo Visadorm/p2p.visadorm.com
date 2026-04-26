@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PaymentMethodType;
+use Illuminate\Database\Eloquent\Casts\AsEncryptedArrayObject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -28,7 +29,7 @@ class MerchantPaymentMethod extends Model
     {
         return [
             'type' => PaymentMethodType::class,
-            'details' => 'json',
+            'details' => AsEncryptedArrayObject::class,
             'location_lat' => 'decimal:7',
             'location_lng' => 'decimal:7',
             'is_active' => 'boolean',

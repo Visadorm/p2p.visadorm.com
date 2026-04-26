@@ -323,6 +323,19 @@ export function WalletProvider({ children, blockchain }) {
     return null
   }, [signer, phraseWallet])
 
+  // EIP-712 typed-data signature. Used for meta-tx flows (e.g. sell-trade release).
+  const signTypedData = useCallback(async ({ domain, types, message }) => {
+    const cleanedTypes = { ...types }
+    delete cleanedTypes.EIP712Domain
+    if (phraseWallet) {
+      return await phraseWallet._signTypedData(domain, cleanedTypes, message)
+    }
+    if (signer) {
+      return await signer._signTypedData(domain, cleanedTypes, message)
+    }
+    return null
+  }, [signer, phraseWallet])
+
   // Refresh merchant data from API
   const refreshMerchant = useCallback(async () => {
     if (!token) return
@@ -403,7 +416,7 @@ export function WalletProvider({ children, blockchain }) {
       provider, signer, phraseWallet, hasPhraseWallet,
       connecting, authenticating, connectedWallet,
       merchant, token,
-      connect, disconnect, switchChain, signMessage,
+      connect, disconnect, switchChain, signMessage, signTypedData,
       unlockPhraseWallet, clearPhraseWallet, refreshMerchant,
     }}>
       {children}

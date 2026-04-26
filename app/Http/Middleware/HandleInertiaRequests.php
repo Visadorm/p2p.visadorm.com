@@ -72,6 +72,19 @@ class HandleInertiaRequests extends Middleware
                     ],
                 ];
             }),
+            'features' => fn () => Cache::remember('feature_flags', 3600, fn () => rescue(fn () => [
+                'sell_enabled' => (bool) app(\App\Settings\TradeSettings::class)->sell_enabled,
+                'sell_cash_meeting_enabled' => (bool) app(\App\Settings\TradeSettings::class)->sell_cash_meeting_enabled,
+                'merchant_registration_enabled' => (bool) app(\App\Settings\GeneralSettings::class)->merchant_registration_enabled,
+                'p2p_trading_enabled' => (bool) app(\App\Settings\GeneralSettings::class)->p2p_trading_enabled,
+                'cash_meetings_enabled' => (bool) app(\App\Settings\GeneralSettings::class)->cash_meetings_enabled,
+                'fund_lock_hours' => (int) app(\App\Settings\FeeSettings::class)->fund_lock_hours,
+                'p2p_fee_percent' => 0.2,
+            ], [
+                'sell_enabled' => false, 'sell_cash_meeting_enabled' => false,
+                'merchant_registration_enabled' => true, 'p2p_trading_enabled' => true, 'cash_meetings_enabled' => true,
+                'fund_lock_hours' => 168, 'p2p_fee_percent' => 0.2,
+            ])),
             'pages' => fn () => Cache::remember('public_pages_nav', 3600, function () {
                 if (! \Illuminate\Support\Facades\Schema::hasTable('pages')) {
                     return ['header' => [], 'footer' => []];

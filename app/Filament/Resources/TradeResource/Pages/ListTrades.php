@@ -14,30 +14,45 @@ class ListTrades extends ListRecords
 
     public function getTabs(): array
     {
+        $inProgressStatuses = [
+            TradeStatus::Pending,
+            TradeStatus::EscrowLocked,
+            TradeStatus::PaymentSent,
+            TradeStatus::SellFunded,
+            TradeStatus::InProgress,
+            TradeStatus::AwaitingPayment,
+            TradeStatus::VerifiedBySeller,
+            TradeStatus::Released,
+        ];
+
+        $completedStatuses = [
+            TradeStatus::Completed,
+            TradeStatus::Resolved,
+            TradeStatus::ResolvedBuyer,
+            TradeStatus::ResolvedSeller,
+        ];
+
         return [
             'all' => Tab::make('All')
                 ->badge(Trade::count()),
-            'pending' => Tab::make('Pending')
-                ->badge(Trade::where('status', TradeStatus::Pending)->count())
-                ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::Pending)),
-            'escrow_locked' => Tab::make('Escrow Locked')
-                ->badge(Trade::where('status', TradeStatus::EscrowLocked)->count())
-                ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::EscrowLocked)),
-            'payment_sent' => Tab::make('Payment Sent')
-                ->badge(Trade::where('status', TradeStatus::PaymentSent)->count())
-                ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::PaymentSent)),
+            'buy' => Tab::make('Buy')
+                ->badge(Trade::where('type', 'buy')->count())
+                ->modifyQueryUsing(fn ($query) => $query->where('type', 'buy')),
+            'sell' => Tab::make('Sell')
+                ->badge(Trade::where('type', 'sell')->count())
+                ->modifyQueryUsing(fn ($query) => $query->where('type', 'sell')),
+            'in_progress' => Tab::make('In Progress')
+                ->badge(Trade::whereIn('status', $inProgressStatuses)->count())
+                ->modifyQueryUsing(fn ($query) => $query->whereIn('status', $inProgressStatuses)),
             'completed' => Tab::make('Completed')
-                ->badge(Trade::where('status', TradeStatus::Completed)->count())
-                ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::Completed)),
+                ->badge(Trade::whereIn('status', $completedStatuses)->count())
+                ->modifyQueryUsing(fn ($query) => $query->whereIn('status', $completedStatuses)),
             'disputed' => Tab::make('Disputed')
                 ->badge(Trade::where('status', TradeStatus::Disputed)->count())
                 ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::Disputed)),
             'cancelled' => Tab::make('Cancelled')
-                ->badge(Trade::where('status', TradeStatus::Cancelled)->count())
-                ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::Cancelled)),
-            'expired' => Tab::make('Expired')
-                ->badge(Trade::where('status', TradeStatus::Expired)->count())
-                ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::Expired)),
+                ->badge(Trade::whereIn('status', [TradeStatus::Cancelled, TradeStatus::Expired])->count())
+                ->modifyQueryUsing(fn ($query) => $query->whereIn('status', [TradeStatus::Cancelled, TradeStatus::Expired])),
         ];
     }
 }
