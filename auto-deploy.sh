@@ -5,7 +5,7 @@
 # Checks GitHub for new commits every 2 minutes.
 # Only deploys if new changes detected.
 # Now also: verifies frontend build, runs settings backfill, ensures storage symlink.
-# Trigger: rerun cleanup migration on prod.
+# Trigger: rerun cleanup migration on prod (retrigger).
 # ============================================
 
 # Self-replicate to /tmp and re-exec so a mid-run `git pull` that rewrites
