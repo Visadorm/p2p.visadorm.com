@@ -4,6 +4,7 @@
 # Auto Deploy Script — Visadorm P2P
 # Checks GitHub for new commits every 2 minutes.
 # Only deploys if new changes detected.
+# Now also: verifies frontend build, runs settings backfill, ensures storage symlink.
 # ============================================
 
 # Self-replicate to /tmp and re-exec so a mid-run `git pull` that rewrites
