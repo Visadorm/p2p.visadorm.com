@@ -70,22 +70,10 @@ if (! $tbl) {
 }
 
 $rows = [
-    ['general',      'support_url',                   'null'],
-    ['general',      'homepage_variant',              '"classic"'],
-    ['general',      'weglot_enabled',                'false'],
-    ['general',      'weglot_api_key',                'null'],
-    ['general',      'merchant_registration_enabled', 'true'],
-    ['general',      'p2p_trading_enabled',           'true'],
-    ['general',      'cash_meetings_enabled',         'true'],
-    ['notifications','admin_email',                   '""'],
-    ['notifications','email_notifications_enabled',   'true'],
-    ['trade',        'sell_enabled',                       'true'],
-    ['trade',        'sell_max_offers_per_wallet',         '5'],
-    ['trade',        'sell_max_outstanding_usdc',          '50000'],
-    ['trade',        'sell_kyc_threshold_usdc',            '1000'],
-    ['trade',        'sell_kyc_threshold_window_days',     '30'],
-    ['trade',        'sell_cash_meeting_enabled',          'false'],
-    ['trade',        'sell_default_offer_timer_minutes',   '60'],
+    ['general', 'support_url',      'null'],
+    ['general', 'homepage_variant', '"classic"'],
+    ['general', 'weglot_enabled',   'false'],
+    ['general', 'weglot_api_key',   'null'],
 ];
 
 $stmt = $pdo->prepare(
@@ -98,31 +86,6 @@ foreach ($rows as [$group, $name, $payload]) {
     $stmt->execute([$group, $name, $payload]);
     if ($stmt->rowCount() > 0) {
         $inserted++;
-    }
-}
-
-// Address rotations — UPDATE existing rows ONLY when payload still matches the
-// previous canonical value. Admin overrides (any non-matching value) are left
-// untouched. Each entry: [group, name, expected_old_payload, new_payload].
-$rotations = [
-    [
-        'blockchain',
-        'trade_escrow_address',
-        '"0xc4D74Ddcc4ee8DFa9687C37De8be3A21f813C00D"',
-        '"0xD9771DF5f6EA84AceeA98F6DF27497c159dd940c"',
-    ],
-];
-
-$rotateStmt = $pdo->prepare(
-    'UPDATE settings SET payload = ?, updated_at = NOW()
-     WHERE `group` = ? AND name = ? AND payload = ?'
-);
-
-$rotated = 0;
-foreach ($rotations as [$group, $name, $oldPayload, $newPayload]) {
-    $rotateStmt->execute([$newPayload, $group, $name, $oldPayload]);
-    if ($rotateStmt->rowCount() > 0) {
-        $rotated++;
     }
 }
 
@@ -141,8 +104,6 @@ if ($migrationsTable) {
     $migrationNames = [
         '2026_04_23_000001_add_homepage_and_weglot_to_general_settings',
         '2026_04_24_000001_add_support_url_to_general_settings',
-        '2026_04_25_000001_add_sell_flags_to_trade_settings',
-        '2026_04_26_000002_drop_default_currency_country_from_general',
     ];
 
     $checkStmt  = $pdo->prepare('SELECT COUNT(*) FROM migrations WHERE migration = ?');
@@ -157,5 +118,5 @@ if ($migrationsTable) {
     }
 }
 
-echo "inserted={$inserted} considered=" . count($rows) . " rotated={$rotated} marked_migrations={$markedMigrations}\n";
+echo "inserted={$inserted} considered=" . count($rows) . " marked_migrations={$markedMigrations}\n";
 exit(0);

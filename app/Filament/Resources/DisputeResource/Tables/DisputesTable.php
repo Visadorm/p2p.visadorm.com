@@ -4,10 +4,8 @@ namespace App\Filament\Resources\DisputeResource\Tables;
 
 use App\Enums\DisputeStatus;
 use App\Enums\TradeStatus;
-use App\Enums\TradeType;
 use App\Events\TradeCompleted;
 use App\Models\Dispute;
-use App\Models\Trade;
 use App\Services\BlockchainService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -49,11 +47,6 @@ class DisputesTable
                     ->badge()
                     ->sortable(),
 
-                TextColumn::make('trade.type')
-                    ->label(__('trade.type_label'))
-                    ->badge()
-                    ->sortable(),
-
                 TextColumn::make('created_at')
                     ->label(__('p2p.created_at'))
                     ->dateTime()
@@ -63,13 +56,6 @@ class DisputesTable
                 SelectFilter::make('status')
                     ->label(__('p2p.status'))
                     ->options(DisputeStatus::class),
-
-                SelectFilter::make('trade_type')
-                    ->label(__('trade.type_label'))
-                    ->options(TradeType::class)
-                    ->query(fn ($query, array $data) => filled($data['value'] ?? null)
-                        ? $query->whereHas('trade', fn ($q) => $q->where('type', $data['value']))
-                        : $query),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -87,8 +73,14 @@ class DisputesTable
                         ->action(function (Dispute $record, array $data): void {
                             $trade = $record->trade;
 
+                            // Blockchain FIRST — if it fails, don't update DB
                             try {
-                                self::callContractResolve($trade, $trade->buyer_wallet);
+                                if ($trade) {
+                                    app(BlockchainService::class)->resolveDispute(
+                                        $trade->trade_hash,
+                                        $trade->buyer_wallet,
+                                    );
+                                }
                             } catch (\Throwable $e) {
                                 Log::error('Dispute resolve blockchain error (buyer)', [
                                     'dispute_id' => $record->id,
@@ -98,6 +90,7 @@ class DisputesTable
                                 return;
                             }
 
+                            // DB updates only after blockchain succeeds
                             $record->update([
                                 'status' => DisputeStatus::ResolvedBuyer,
                                 'resolution_notes' => $data['resolution_notes'],
@@ -109,6 +102,7 @@ class DisputesTable
                                 'completed_at' => now(),
                             ]);
 
+                            // Dispatch TradeCompleted so stats/rank update
                             if ($trade) {
                                 TradeCompleted::dispatch($trade);
                             }
@@ -132,14 +126,17 @@ class DisputesTable
                         ])
                         ->action(function (Dispute $record, array $data): void {
                             $trade = $record->trade;
-                            $usdcHolderWallet = $trade?->type === TradeType::Sell
-                                ? $trade->seller_wallet
-                                : $trade?->merchant?->wallet_address;
 
+                            // Blockchain FIRST
                             try {
-                                self::callContractResolve($trade, $usdcHolderWallet);
+                                if ($trade) {
+                                    app(BlockchainService::class)->resolveDispute(
+                                        $trade->trade_hash,
+                                        $trade->merchant->wallet_address,
+                                    );
+                                }
                             } catch (\Throwable $e) {
-                                Log::error('Dispute resolve blockchain error (merchant/seller)', [
+                                Log::error('Dispute resolve blockchain error (merchant)', [
                                     'dispute_id' => $record->id,
                                     'error' => $e->getMessage(),
                                 ]);
@@ -150,7 +147,7 @@ class DisputesTable
                             $record->update([
                                 'status' => DisputeStatus::ResolvedMerchant,
                                 'resolution_notes' => $data['resolution_notes'],
-                                'resolved_by' => auth()->user()?->email . ' (winner: ' . ($trade?->type === TradeType::Sell ? 'seller' : 'merchant') . ')',
+                                'resolved_by' => auth()->user()?->email . ' (winner: merchant)',
                             ]);
 
                             $trade?->update([
@@ -171,21 +168,5 @@ class DisputesTable
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
-    }
-
-    private static function callContractResolve(?Trade $trade, ?string $winnerWallet): void
-    {
-        if (! $trade || ! $winnerWallet) {
-            return;
-        }
-
-        $blockchain = app(BlockchainService::class);
-
-        if ($trade->type === TradeType::Sell) {
-            $blockchain->resolveSellDispute($trade->trade_hash, $winnerWallet);
-            return;
-        }
-
-        $blockchain->resolveDispute($trade->trade_hash, $winnerWallet);
     }
 }

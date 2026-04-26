@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { Link, router, usePage } from "@inertiajs/react"
+import { Link, router } from "@inertiajs/react"
 import {
   Wallet,
   ShieldCheck,
@@ -75,12 +75,6 @@ export default function Connect() {
                       Click below to connect your wallet. You'll be asked to sign a message to verify ownership — no transaction or gas fee required.
                     </p>
                   </div>
-
-                  {usePage().props.features?.merchant_registration_enabled === false && (
-                    <div className="w-full max-w-xs rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-400">
-                      New merchant registration is currently paused. Existing wallets can still sign in.
-                    </div>
-                  )}
 
                   <ConnectWallet size="lg" className="w-full max-w-xs text-base" />
 

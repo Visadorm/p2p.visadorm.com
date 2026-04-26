@@ -89,6 +89,7 @@ class BlockchainService
     {
         $result = $this->callEscrowContract('trades', [$tradeId]);
 
+        // The trades mapping returns a tuple decoded as a flat array
         if (is_array($result) && count($result) >= 9) {
             return [
                 'merchant'     => $result[0],
@@ -100,8 +101,6 @@ class BlockchainService
                 'isPrivate'    => $result[6],
                 'createdAt'    => $result[7],
                 'expiresAt'    => $result[8],
-                'seller'       => $result[9] ?? null,
-                'kind'         => isset($result[10]) ? (int) $result[10] : null,
             ];
         }
 
@@ -365,63 +364,6 @@ class BlockchainService
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'burnTradeNFT', [$bytes32Hash]);
 
         return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
-    }
-
-    /**
-     * Operator relays a seller's EIP-712-signed release for a sell trade.
-     * Calls: executeMetaSellRelease(bytes32, uint256, uint256, bytes)
-     */
-    public function executeMetaSellRelease(
-        string $tradeHash,
-        int $nonce,
-        int $deadline,
-        string $sellerSignatureHex,
-    ): string {
-        $signerKey = config('blockchain.operator_private_key');
-        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
-        $data = $this->encodeFunctionCall(
-            $this->tradeEscrowAbi,
-            'executeMetaSellRelease',
-            [$bytes32Hash, (string) $nonce, (string) $deadline, $sellerSignatureHex],
-        );
-
-        return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
-    }
-
-    /**
-     * Multisig-only sell-trade dispute resolver.
-     * Calls: resolveSellDispute(bytes32, address)
-     */
-    public function resolveSellDispute(string $tradeHash, string $winner): string
-    {
-        $signerKey = config('blockchain.admin_private_key');
-        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
-        $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'resolveSellDispute', [$bytes32Hash, $winner]);
-
-        return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
-    }
-
-    /**
-     * Permissionless cancel of an expired sell trade. Cron invokes via operator.
-     * Calls: cancelExpiredSellTrade(bytes32)
-     */
-    public function cancelExpiredSellTrade(string $tradeHash): string
-    {
-        $signerKey = config('blockchain.operator_private_key');
-        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
-        $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'cancelExpiredSellTrade', [$bytes32Hash]);
-
-        return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
-    }
-
-    /**
-     * Read seller nonce used by EIP-712 release signatures.
-     * Calls: sellerNonce(address) -> uint256
-     */
-    public function getSellerNonce(string $sellerAddress): int
-    {
-        $hex = $this->callEscrowContract('sellerNonce', [$sellerAddress]);
-        return (int) $hex;
     }
 
     /**

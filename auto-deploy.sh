@@ -120,22 +120,11 @@ if git diff HEAD@{1} --name-only 2>/dev/null | grep -q "composer.lock"; then
     fi
 fi
 
-# Verify frontend build assets present (built locally, committed to repo —
-# server never runs npm). Warn if missing.
-BUILD_STATUS="Present"
-if [ ! -f "public/build/manifest.json" ]; then
-    BUILD_STATUS="MISSING"
-    echo "WARNING: public/build/manifest.json not found. Run 'npm run build' locally then re-push."
-fi
-
 # Defensive: ensure required Spatie settings rows exist before any artisan
 # command boots Filament (which would otherwise crash via MissingSettings).
 # Bare PDO — no Laravel boot involved. Idempotent.
-BACKFILL_STATUS="skipped"
 if [ -f "scripts/backfill-settings.php" ]; then
-    BACKFILL_OUT=$(php scripts/backfill-settings.php 2>&1 || true)
-    echo "$BACKFILL_OUT"
-    BACKFILL_STATUS=$(echo "$BACKFILL_OUT" | tail -1)
+    php scripts/backfill-settings.php 2>&1 || true
 fi
 
 MIGRATE_OUTPUT=$(php artisan migrate --force --no-interaction 2>&1)
@@ -149,8 +138,6 @@ elif echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
 else
     MIGRATE_STATUS="Nothing to migrate"
 fi
-
-php artisan storage:link --force 2>&1 | tail -2
 
 php artisan optimize:clear
 php artisan optimize
@@ -195,10 +182,8 @@ MSG="<b>Deploy Complete</b>
 <b>Branch:</b> ${BRANCH}
 <b>Commit:</b> <code>${COMMIT_SHORT}</code> ${COMMIT_MSG}
 <b>Files:</b> ${FILES_CHANGED} changed
-<b>Frontend:</b> ${BUILD_STATUS}
 <b>Composer:</b> ${COMPOSER_STATUS}
 <b>Migration:</b> ${MIGRATE_STATUS}
-<b>Backfill:</b> ${BACKFILL_STATUS}
 <b>Cloudflare:</b> ${CF_STATUS}
 <b>Duration:</b> ${DURATION}s"
 

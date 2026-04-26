@@ -128,80 +128,19 @@ class TradeInfolist
                             ->label(__('trade.escrow_tx'))
                             ->copyable()
                             ->limit(30)
-                            ->placeholder('—')
-                            ->url(fn ($record) => $record->escrow_tx_hash
-                                ? 'https://sepolia.basescan.org/tx/' . $record->escrow_tx_hash
-                                : null)
-                            ->openUrlInNewTab(),
+                            ->placeholder('—'),
 
                         TextEntry::make('release_tx_hash')
                             ->label(__('trade.release_tx'))
                             ->copyable()
                             ->limit(30)
-                            ->placeholder('—')
-                            ->url(fn ($record) => $record->release_tx_hash
-                                ? 'https://sepolia.basescan.org/tx/' . $record->release_tx_hash
-                                : null)
-                            ->openUrlInNewTab(),
+                            ->placeholder('—'),
 
                         TextEntry::make('nft_token_id')
                             ->label(__('trade.nft_token_id'))
                             ->placeholder('—'),
                     ])
                     ->columns(2),
-
-                Section::make(__('trade.section_sell_details'))
-                    ->schema([
-                        TextEntry::make('seller_wallet')
-                            ->label(__('trade.seller_wallet'))
-                            ->copyable()
-                            ->limit(30)
-                            ->placeholder('—'),
-
-                        TextEntry::make('sellOffer.slug')
-                            ->label(__('trade.sell_offer'))
-                            ->placeholder('—')
-                            ->url(fn ($record) => $record->sell_offer_id
-                                ? route('filament.admin.resources.p2p.sell-offers.view', ['record' => $record->sell_offer_id])
-                                : null),
-
-                        TextEntry::make('seller_payment_snapshot')
-                            ->label(__('trade.seller_payment_snapshot'))
-                            ->placeholder('—')
-                            ->columnSpanFull()
-                            ->formatStateUsing(function ($state) {
-                                if (empty($state)) return '—';
-                                $arr = is_array($state) ? $state : (array) $state;
-                                $label = $arr['label'] ?? $arr['provider'] ?? '';
-                                $details = $arr['details'] ?? [];
-                                $lines = [$label];
-                                foreach ((array) $details as $k => $v) {
-                                    $lines[] = ucfirst(str_replace('_', ' ', $k)) . ': ' . $v;
-                                }
-                                if (! empty($arr['safety_note'])) {
-                                    $lines[] = '⚠ ' . $arr['safety_note'];
-                                }
-                                return implode("\n", array_filter($lines));
-                            })
-                            ->markdown(false),
-
-                        TextEntry::make('release_signature')
-                            ->label(__('trade.release_signature'))
-                            ->copyable()
-                            ->limit(30)
-                            ->placeholder('—'),
-
-                        TextEntry::make('release_signature_nonce')
-                            ->label(__('trade.release_signature_nonce'))
-                            ->placeholder('—'),
-
-                        TextEntry::make('release_signature_deadline')
-                            ->label(__('trade.release_signature_deadline'))
-                            ->dateTime()
-                            ->placeholder('—'),
-                    ])
-                    ->columns(2)
-                    ->visible(fn ($record) => $record->type?->value === 'sell'),
 
                 Section::make(__('trade.section_meeting'))
                     ->schema([

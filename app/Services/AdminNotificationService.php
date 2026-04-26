@@ -24,14 +24,6 @@ class AdminNotificationService
 
         $admins = User::whereNotNull('role')->get();
 
-        $emailGloballyEnabled = $settings && property_exists($settings, 'email_notifications_enabled')
-            ? (bool) $settings->email_notifications_enabled
-            : true;
-
-        $dedicatedAdminEmail = $settings && property_exists($settings, 'admin_email')
-            ? trim((string) $settings->admin_email)
-            : '';
-
         foreach ($admins as $admin) {
             $notification = Notification::make()
                 ->title($title)
@@ -46,20 +38,13 @@ class AdminNotificationService
             };
 
             $notification->sendToDatabase($admin);
-        }
 
-        if (! $emailGloballyEnabled || config('mail.default') === 'log') {
-            return;
-        }
-
-        $recipients = $dedicatedAdminEmail !== ''
-            ? [$dedicatedAdminEmail]
-            : $admins->pluck('email')->filter()->unique()->values()->all();
-
-        foreach ($recipients as $email) {
-            rescue(fn () => Mail::raw($body, function ($message) use ($email, $title) {
-                $message->to($email)->subject("[Visadorm] {$title}");
-            }));
+            // Send email if admin has an email address
+            if ($admin->email && config('mail.default') !== 'log') {
+                rescue(fn () => Mail::raw($body, function ($message) use ($admin, $title) {
+                    $message->to($admin->email)->subject("[Visadorm] {$title}");
+                }));
+            }
         }
     }
 }

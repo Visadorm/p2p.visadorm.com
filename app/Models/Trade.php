@@ -43,12 +43,6 @@ class Trade extends Model
         'disputed_at',
         'completed_at',
         'expires_at',
-        'seller_wallet',
-        'sell_offer_id',
-        'release_signature',
-        'release_signature_nonce',
-        'release_signature_deadline',
-        'seller_payment_snapshot',
     ];
 
     protected function casts(): array
@@ -67,23 +61,15 @@ class Trade extends Model
             'meeting_lat' => 'decimal:7',
             'meeting_lng' => 'decimal:7',
             'nft_metadata' => 'json',
-            'seller_payment_snapshot' => \Illuminate\Database\Eloquent\Casts\AsEncryptedArrayObject::class,
             'disputed_at' => 'datetime',
             'completed_at' => 'datetime',
             'expires_at' => 'datetime',
-            'release_signature_deadline' => 'datetime',
-            'release_signature_nonce' => 'integer',
         ];
     }
 
     public function merchant(): BelongsTo
     {
         return $this->belongsTo(Merchant::class);
-    }
-
-    public function sellOffer(): BelongsTo
-    {
-        return $this->belongsTo(SellOffer::class);
     }
 
     public function tradingLink(): BelongsTo

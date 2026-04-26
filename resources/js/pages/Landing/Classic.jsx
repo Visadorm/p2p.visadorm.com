@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { Link, usePage } from "@inertiajs/react"
-import { ShieldCheck } from "@phosphor-icons/react"
 import ConnectWallet from "@/components/ConnectWallet"
 import PublicHeader from "@/components/PublicHeader"
 import PublicFooter from "@/components/PublicFooter"
@@ -413,106 +412,8 @@ function MerchantCard({ m }) {
   )
 }
 
-function SellOfferRow({ o }) {
-  const seller = o.seller_merchant
-  const displayName = seller?.username || (o.seller_wallet ? `${o.seller_wallet.slice(0, 6)}...${o.seller_wallet.slice(-4)}` : "Seller")
-  const initials = getInitials(seller?.username || o.seller_wallet?.slice(2, 4) || "??")
-  const rank = seller?.rank?.name
-  const kycVerified = seller?.kyc_status === "approved"
-  return (
-    <Link href={`/sell/o/${o.slug}`}>
-      <div className="cursor-pointer rounded-xl border border-[#1e2a42] bg-[#161c2d] p-4 transition-colors hover:border-[#263350]">
-        <div className="flex items-start gap-3">
-          {/* Avatar */}
-          <div className="relative shrink-0">
-            <div
-              className="flex size-12 items-center justify-center overflow-hidden rounded-full text-sm font-semibold text-white"
-              style={{ background: avatarGradient(displayName) }}
-            >
-              {initials}
-            </div>
-          </div>
-
-          {/* Body */}
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-[#e8edf7]">{displayName}</span>
-              {kycVerified && <span className="text-sm text-[#4dabf7]">✓</span>}
-              {rank && (
-                <span className={`inline-block rounded-full border px-2 py-0.5 text-xs ${rankStyle[rank] || "bg-[#8b96b0]/10 text-[#8b96b0] border-[#8b96b0]/20"}`}>
-                  {rank}
-                </span>
-              )}
-            </div>
-
-            {Array.isArray(o.payment_methods) && o.payment_methods.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {o.payment_methods.slice(0, 4).map((pm, i) => (
-                  <span key={i} className="rounded bg-white/[0.04] px-2 py-0.5 text-xs text-[#4a5568]">
-                    {pm.label || pm.provider || pm.type}
-                  </span>
-                ))}
-                {o.payment_methods.length > 4 && (
-                  <span className="rounded bg-white/[0.04] px-2 py-0.5 text-xs text-[#4a5568]">
-                    +{o.payment_methods.length - 4}
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <span className="rounded bg-[#4f6ef7]/10 px-2 py-0.5 font-mono text-xs text-[#4f6ef7]">{o.currency_code}</span>
-              <span className="rounded bg-white/[0.04] px-2 py-0.5 font-mono text-xs text-[#4a5568]">
-                @ {Number(o.fiat_rate).toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {/* Right */}
-          <div className="shrink-0 text-right">
-            <div className="font-mono text-xl font-semibold text-[#22c98a]">{formatUsdc(Number(o.amount_usdc))}</div>
-            <div className="text-xs text-[#4a5568]">selling</div>
-            <div className="mt-1.5 font-mono text-sm font-semibold text-[#e8edf7]">{seller?.completion_rate ?? 0}%</div>
-            <div className="text-xs text-[#4a5568]">{(seller?.total_trades || 0).toLocaleString()} trades</div>
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between border-t border-[#1e2a42] pt-2.5">
-          <div className="flex flex-wrap gap-1.5">
-            {seller?.is_fast_responder && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#fbbf24]/10 px-2 py-0.5 text-xs text-[#fbbf24]">
-                ⚡ Fast
-              </span>
-            )}
-            {seller?.has_liquidity && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#22c98a]/10 px-2 py-0.5 text-xs text-[#22c98a]">
-                $ Liquidity
-              </span>
-            )}
-            {kycVerified && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#4dabf7]/10 px-2 py-0.5 text-xs text-[#4dabf7]">
-                ✓ Verified
-              </span>
-            )}
-            {o.require_kyc && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#22c98a]/10 px-2 py-0.5 text-xs text-[#22c98a]">
-                🛡 KYC required
-              </span>
-            )}
-          </div>
-          <span className="flex items-center gap-1 text-sm text-[#8b96b0] hover:text-[#4f6ef7] transition-colors">
-            Buy USDC →
-          </span>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
 function Marketplace() {
-  const { features } = usePage().props
   const [merchants, setMerchants] = useState([])
-  const [sellOffers, setSellOffers] = useState([])
   const [loading,   setLoading]   = useState(true)
   const [page,      setPage]      = useState(1)
   const [lastPage,  setLastPage]  = useState(1)
@@ -525,54 +426,23 @@ function Marketplace() {
   const load = useCallback(async (reset = false) => {
     setLoading(true)
     try {
-      if (tab === "sell") {
-        const params = {}
-        if (currency) params.currency = currency
-        if (payment) params.payment = payment
-        const res = await fetch(`/api/sell-offers?${new URLSearchParams(params)}`, { headers: { Accept: "application/json" } }).then(r => r.json())
-        const d = res.data || {}
-        setSellOffers(d.offers || [])
-        setLastPage(d.pagination?.last_page || 1)
-        setTotal(d.pagination?.total || 0)
-      } else {
-        const res  = await fetchMerchants({ currency, payment, page: reset ? 1 : page })
-        const d    = res.data || {}
-        const list = d.merchants || []
-        setMerchants(prev => reset ? list : [...prev, ...list])
-        setLastPage(d.pagination?.last_page || 1)
-        setTotal(d.pagination?.total || 0)
-        if (reset) setPage(1)
-      }
+      const res  = await fetchMerchants({ currency, payment, page: reset ? 1 : page })
+      const d    = res.data || {}
+      const list = d.merchants || []
+      setMerchants(prev => reset ? list : [...prev, ...list])
+      setLastPage(d.pagination?.last_page || 1)
+      setTotal(d.pagination?.total || 0)
+      if (reset) setPage(1)
     } catch { /* silent */ }
     finally { setLoading(false) }
-  }, [currency, payment, page, tab])
+  }, [currency, payment, page])
 
   useEffect(() => { setPage(1); load(true) }, [currency, payment, tab])
-  useEffect(() => { if (page > 1 && tab === "buy") load(false) }, [page, tab])
+  useEffect(() => { if (page > 1) load(false) }, [page])
 
   const visible = merchants.filter(m =>
     !search || m.username.toLowerCase().includes(search.toLowerCase())
   )
-
-  const sellTabVisible = features?.sell_enabled !== false
-  useEffect(() => {
-    if (!sellTabVisible && tab === "sell") setTab("buy")
-  }, [sellTabVisible, tab])
-
-  if (features?.p2p_trading_enabled === false) {
-    return (
-      <div>
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 text-center">
-          <div className="text-3xl">🛠</div>
-          <div className="mt-3 text-lg font-semibold text-amber-400">P2P trading paused</div>
-          <p className="mx-auto mt-2 max-w-md text-sm text-amber-400/80">
-            The platform admin has temporarily disabled new trades for maintenance.
-            Existing trades continue settling normally. Check back soon.
-          </p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div>
@@ -588,18 +458,16 @@ function Marketplace() {
         >
           <span className="text-xs text-[#22c98a]">▲</span> Buy USDC
         </button>
-        {sellTabVisible && (
-          <button
-            onClick={() => setTab("sell")}
-            className={`flex items-center gap-1.5 rounded-md px-5 py-2 text-sm transition-colors ${
-              tab === "sell"
-                ? "border border-[#263350] bg-[#1a2135] text-[#e8edf7]"
-                : "text-[#8b96b0] hover:text-[#e8edf7]"
-            }`}
-          >
-            <span className="text-xs text-[#f87171]">▼</span> Sell USDC
-          </button>
-        )}
+        <button
+          onClick={() => setTab("sell")}
+          className={`flex items-center gap-1.5 rounded-md px-5 py-2 text-sm transition-colors ${
+            tab === "sell"
+              ? "border border-[#263350] bg-[#1a2135] text-[#e8edf7]"
+              : "text-[#8b96b0] hover:text-[#e8edf7]"
+          }`}
+        >
+          <span className="text-xs text-[#f87171]">▼</span> Sell USDC
+        </button>
       </div>
 
       {/* Info banner */}
@@ -662,28 +530,7 @@ function Marketplace() {
       )}
 
       {/* Cards */}
-      {tab === "sell" ? (
-        !features?.sell_enabled ? (
-          <div className="rounded-xl border border-[#fbbf24]/30 bg-[#fbbf24]/10 p-6 text-center text-sm text-[#fbbf24]">
-            Sell flow is currently disabled. Check back soon.
-          </div>
-        ) : loading ? (
-          <div className="flex flex-col gap-2.5">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl border border-[#1e2a42] bg-[#161c2d]" />
-            ))}
-          </div>
-        ) : sellOffers.length > 0 ? (
-          <div className="flex flex-col gap-2.5">
-            {sellOffers.map(o => <SellOfferRow key={o.slug} o={o} />)}
-          </div>
-        ) : (
-          <div className="py-16 text-center text-[#4a5568]">
-            <div className="mx-auto mb-2 text-3xl opacity-40">📦</div>
-            <p className="text-sm">No active sell offers right now.</p>
-          </div>
-        )
-      ) : loading && merchants.length === 0 ? (
+      {loading && merchants.length === 0 ? (
         <div className="flex flex-col gap-2.5">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-32 animate-pulse rounded-xl border border-[#1e2a42] bg-[#161c2d]" />
@@ -739,9 +586,8 @@ const FEATURES = [
 
 export default function Landing() {
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#0a0d14] text-[#e8edf7]">
+    <div className="min-h-screen overflow-x-hidden bg-[#0a0d14] text-[#e8edf7]">
       <PublicHeader showMarketplaceAnchor />
-      <div className="flex-1">
 
       {/* HERO */}
       <section
@@ -858,7 +704,6 @@ export default function Landing() {
         </div>
       </section>
 
-      </div>
       <PublicFooter />
     </div>
   )

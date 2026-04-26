@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, router, usePage } from "@inertiajs/react"
+import { router, usePage } from "@inertiajs/react"
 import { toast } from "sonner"
 import {
   Wallet,
@@ -16,8 +16,6 @@ import {
   EyeSlash,
   Key,
   LockKey,
-  SquaresFour,
-  ArrowUpRight,
 } from "@phosphor-icons/react"
 import {
   Dialog,
@@ -130,9 +128,6 @@ export default function ConnectWallet({ variant = "default", size = "default", c
     connecting, authenticating, connectedWallet,
     connect, disconnect, switchChain,
   } = useWallet()
-
-  const { features } = usePage().props
-  const sellEnabled = !!features?.sell_enabled
 
   const isBusy = connecting || authenticating || phraseSubmitting
 
@@ -275,24 +270,6 @@ export default function ConnectWallet({ variant = "default", size = "default", c
               </span>
             </div>
           </div>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
-            <Link href="/dashboard">
-              <SquaresFour weight="duotone" className="size-4" />
-              Dashboard
-            </Link>
-          </DropdownMenuItem>
-
-          {sellEnabled && (
-            <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
-              <Link href="/sell/dashboard">
-                <ArrowUpRight weight="duotone" className="size-4" />
-                Sell Offers
-              </Link>
-            </DropdownMenuItem>
-          )}
 
           <DropdownMenuSeparator />
 

@@ -56,13 +56,6 @@ class AppServiceProvider extends ServiceProvider
             ['general', 'homepage_variant', 'classic'],
             ['general', 'weglot_enabled', false],
             ['general', 'weglot_api_key', null],
-            ['trade', 'sell_enabled', false],
-            ['trade', 'sell_max_offers_per_wallet', 5],
-            ['trade', 'sell_max_outstanding_usdc', 50000],
-            ['trade', 'sell_kyc_threshold_usdc', 1000],
-            ['trade', 'sell_kyc_threshold_window_days', 30],
-            ['trade', 'sell_cash_meeting_enabled', false],
-            ['trade', 'sell_default_offer_timer_minutes', 60],
         ];
 
         foreach ($defaults as [$group, $name, $value]) {

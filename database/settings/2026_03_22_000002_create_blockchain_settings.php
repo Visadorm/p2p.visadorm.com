@@ -12,7 +12,7 @@ return new class extends SettingsMigration
         $this->migrator->add('blockchain.chain_id', 84532);
 
         // Contracts (deployed addresses — Base Sepolia)
-        $this->migrator->add('blockchain.trade_escrow_address', '0xD9771DF5f6EA84AceeA98F6DF27497c159dd940c');
+        $this->migrator->add('blockchain.trade_escrow_address', '0xc4D74Ddcc4ee8DFa9687C37De8be3A21f813C00D');
         $this->migrator->add('blockchain.soulbound_nft_address', '0xD81a5b95550E94C7ec995af6BaaD4ab7281B5FFD');
         $this->migrator->add('blockchain.visa_escrow_address', '');
         $this->migrator->add('blockchain.booking_escrow_address', '');

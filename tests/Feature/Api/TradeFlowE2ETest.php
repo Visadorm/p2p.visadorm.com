@@ -102,7 +102,7 @@ class TradeFlowE2ETest extends TestCase
             'type' => 'bank_transfer',
             'provider' => 'bank_transfer',
             'label' => 'Bank Transfer',
-            'details' => ['bank' => 'Test Bank'],
+            'details' => json_encode(['bank' => 'Test Bank']),
             'is_active' => true,
         ]);
 

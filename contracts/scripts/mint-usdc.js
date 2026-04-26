@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  const USDC = process.env.USDC_ADDRESS || "0xe3B1038eecea95053256D0e5d52D11A0703D1c4F";
+  const USDC = process.env.USDC_ADDRESS || "0xc4d1c4B5778f61d8DdAB492FEF745FB5133FEC53";
   const TO = process.env.TO || "0x392d5b11Ca3d89769e76924409364bA0CE302B9a";
   const AMOUNT = ethers.parseUnits(process.env.AMOUNT || "10000", 6);
 

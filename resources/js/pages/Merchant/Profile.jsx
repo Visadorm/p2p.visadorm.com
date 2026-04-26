@@ -199,14 +199,11 @@ export default function MerchantProfile({ username }) {
   const [merchant, setMerchant] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState("buy")
   const [selectedAmount, setSelectedAmount] = useState(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
   const [cashPage, setCashPage] = useState(0)
   const [customAmount, setCustomAmount] = useState("")
   const [currency, setCurrency] = useState("")
-  const [sellOffers, setSellOffers] = useState([])
-  const [sellOffersLoading, setSellOffersLoading] = useState(false)
 
   useEffect(() => {
     if (!username) return
@@ -230,18 +227,6 @@ export default function MerchantProfile({ username }) {
       })
       .finally(() => setLoading(false))
   }, [username])
-
-  useEffect(() => {
-    if (!merchant?.wallet_address) return
-    setSellOffersLoading(true)
-    fetch(`/api/sell-offers?seller=${merchant.wallet_address.toLowerCase()}&per_page=20`, {
-      headers: { Accept: "application/json" },
-    })
-      .then(r => r.json())
-      .then(d => setSellOffers(d.data?.offers || []))
-      .catch(() => setSellOffers([]))
-      .finally(() => setSellOffersLoading(false))
-  }, [merchant?.wallet_address])
 
   if (loading) {
     return <ProfileSkeleton />
@@ -738,47 +723,15 @@ export default function MerchantProfile({ username }) {
 
           </div>
 
-          {/* ===== RIGHT COLUMN — Buy/Sell Panel ===== */}
+          {/* ===== RIGHT COLUMN — Buy Panel ===== */}
           <div className="order-first lg:order-none lg:col-span-4 lg:sticky lg:top-24 lg:self-start">
             <Card className="border-border/50 overflow-hidden pt-0">
-              {/* Buy/Sell tabs */}
-              <div className="grid grid-cols-2">
-                <button
-                  onClick={() => setActiveTab("buy")}
-                  className={`relative h-14 text-base font-semibold transition-colors ${
-                    activeTab === "buy"
-                      ? "text-emerald-400 bg-emerald-500/5"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Buy USDC
-                  {activeTab === "buy" && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab("sell")}
-                  className={`relative h-14 text-base font-semibold transition-colors ${
-                    activeTab === "sell"
-                      ? "text-purple-400 bg-purple-500/5"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Sell offers
-                  {sellOffers.length > 0 && (
-                    <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                      activeTab === "sell" ? "bg-purple-500/20 text-purple-300" : "bg-muted text-muted-foreground"
-                    }`}>
-                      {sellOffers.length}
-                    </span>
-                  )}
-                  {activeTab === "sell" && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500" />
-                  )}
-                </button>
+              {/* Header */}
+              <div className="relative h-14 flex items-center justify-center text-base font-semibold text-emerald-400 bg-emerald-500/5">
+                Buy USDC
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />
               </div>
 
-              {activeTab === "buy" ? (
                 <div className="p-5 space-y-5">
                   {/* Rate */}
                   <div className="flex items-center justify-center">
@@ -861,54 +814,6 @@ export default function MerchantProfile({ username }) {
                   {/* Risk Warning */}
                   <RiskWarning message="Only trade with funds you can afford to lose. Verify merchant reputation before trading." />
                 </div>
-              ) : (
-                <div className="p-5 space-y-3">
-                  {sellOffersLoading ? (
-                    <div className="rounded-xl border border-border/50 bg-muted/20 p-6 text-center text-sm text-muted-foreground">Loading offers…</div>
-                  ) : sellOffers.length === 0 ? (
-                    <div className="rounded-xl border border-border/50 bg-muted/20 p-6 text-center">
-                      <p className="text-sm font-medium text-foreground">No active sell offers</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        This merchant has no USDC sell offers right now. Check back later or browse the
-                        <Link href="/sell" className="ml-1 text-purple-400 hover:underline">sell marketplace</Link>.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        This merchant is selling USDC. Pick an offer to take it.
-                      </p>
-                      {sellOffers.map(o => (
-                        <Link key={o.slug} href={`/sell/o/${o.slug}`}
-                          className="block rounded-lg border border-border/50 bg-muted/10 p-4 transition-colors hover:border-purple-500/40 hover:bg-purple-500/5">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-mono text-lg font-semibold text-purple-400">
-                                {Number(o.amount_usdc).toLocaleString()} USDC
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                1 USDC = {Number(o.fiat_rate).toFixed(2)} {o.currency_code}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs font-medium text-purple-400">
-                              Take <ArrowRight weight="bold" size={14} />
-                            </div>
-                          </div>
-                          {Array.isArray(o.payment_methods) && o.payment_methods.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {o.payment_methods.slice(0, 3).map((pm, i) => (
-                                <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                                  {pm.label || pm.type}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </Link>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
             </Card>
           </div>
 

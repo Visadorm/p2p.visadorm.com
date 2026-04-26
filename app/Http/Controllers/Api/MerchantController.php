@@ -76,7 +76,7 @@ class MerchantController extends Controller
             'bio' => ['sometimes', 'nullable', 'string', 'max:500'],
             'avatar' => ['sometimes', 'nullable', 'string', 'max:255'],
             'trade_instructions' => ['sometimes', 'nullable', 'string', 'max:2000'],
-            'trade_timer_minutes' => ['sometimes', 'integer', 'min:10', 'max:' . max(10, (int) app(\App\Settings\TradeSettings::class)->max_trade_timer_minutes)],
+            'trade_timer_minutes' => ['sometimes', 'integer', 'min:10', 'max:120'],
             'buyer_verification' => ['sometimes', Rule::enum(BuyerVerification::class)],
             'notify_bank_proof' => ['sometimes', 'boolean'],
             'notify_buyer_id' => ['sometimes', 'boolean'],

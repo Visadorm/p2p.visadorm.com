@@ -9,11 +9,8 @@ return [
     'merchant_wallet' => 'Merchant Wallet',
     'buyer' => 'Buyer',
     'buyer_wallet' => 'Buyer Wallet',
-    'seller' => 'Seller',
-    'seller_wallet' => 'Seller Wallet',
     'amount' => 'Amount',
     'payment_method' => 'Payment Method',
-    'payment_methods' => 'Payment Methods',
     'timeline' => 'Timeline',
     'evidence' => 'Evidence',
     'trading_link' => 'Trading Link',
@@ -28,14 +25,6 @@ return [
         'cancelled' => 'Cancelled',
         'disputed' => 'Disputed',
         'expired' => 'Expired',
-        'sell_funded' => 'Funded',
-        'in_progress' => 'In Progress',
-        'awaiting_payment' => 'Awaiting Payment',
-        'verified_by_seller' => 'Verified by Seller',
-        'released' => 'Released',
-        'resolved_buyer' => 'Resolved — Buyer',
-        'resolved_seller' => 'Resolved — Seller',
-        'resolved' => 'Resolved',
     ],
 
     // Trade Types
@@ -130,12 +119,5 @@ return [
     'section_blockchain' => 'Blockchain',
     'section_meeting' => 'Cash Meeting',
     'section_timestamps' => 'Timestamps',
-    'section_sell_details' => 'Sell Trade Details',
-
-    'sell_offer' => 'Sell Offer',
-    'seller_payment_snapshot' => 'Payment Method Snapshot',
-    'release_signature' => 'EIP-712 Release Signature',
-    'release_signature_nonce' => 'Signature Nonce',
-    'release_signature_deadline' => 'Signature Deadline',
 
 ];
