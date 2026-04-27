@@ -1,23 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\KycDownloadController;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
-
-Route::get('/__debug/sell-cleanup-status', function () {
-    return response()->json([
-        'sell_offers_table_exists' => Schema::hasTable('sell_offers'),
-        'trades_seller_wallet_exists' => Schema::hasColumn('trades', 'seller_wallet'),
-        'trades_sell_offer_id_exists' => Schema::hasColumn('trades', 'sell_offer_id'),
-        'trades_release_signature_exists' => Schema::hasColumn('trades', 'release_signature'),
-        'trades_seller_payment_snapshot_exists' => Schema::hasColumn('trades', 'seller_payment_snapshot'),
-        'sell_settings_rows' => DB::table('settings')->where('group', 'trade')->where('name', 'like', 'sell_%')->count(),
-        'cleanup_migration_recorded' => DB::table('migrations')->where('migration', '2026_04_27_000001_drop_sell_flow_artifacts')->exists(),
-        'orphan_sell_migrations' => DB::table('migrations')->where('migration', 'like', '%sell%')->orWhere('migration', 'like', '%encrypt_merchant%')->orWhere('migration', 'like', '%stale_reviews%')->pluck('migration'),
-    ]);
-});
 
 // Public — Landing (variant chosen by admin setting)
 Route::get('/', function () {
