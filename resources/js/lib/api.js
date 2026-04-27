@@ -314,6 +314,78 @@ export const api = {
         }).then(handleResponse);
     },
 
+    // Sell Trades — non-custodial flow. All on-chain actions broadcast from
+    // user wallet; backend records tx hashes after RPC verification.
+    openSellTrade: (body) =>
+        fetch(`${API_BASE}/sell-trades`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    confirmSellFund: (tradeHash, body) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/confirm-fund`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    getSellTrade: (tradeHash) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}`, { headers: headers() }).then(handleResponse),
+
+    confirmSellJoin: (tradeHash, body) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/confirm-join`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    confirmSellMarkPaid: (tradeHash, body) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/confirm-mark-paid`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    uploadSellCashProof: (tradeHash, file, note) => {
+        const formData = new FormData();
+        formData.append('proof', file);
+        if (note) formData.append('note', note);
+        return fetch(`${API_BASE}/sell-trades/${tradeHash}/cash-proof`, {
+            method: 'POST',
+            headers: fileHeaders(),
+            body: formData,
+        }).then(handleResponse);
+    },
+
+    setSellVerifyPayment: (tradeHash, verified) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/verify-payment`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ verified }),
+        }).then(handleResponse),
+
+    confirmSellRelease: (tradeHash, body) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/confirm-release`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    openSellTradeDispute: (tradeHash, body) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/dispute`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    cancelSellTrade: (tradeHash, body) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/cancel`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
     // Notifications
     getNotifications: (page = 1) =>
         fetch(`${API_BASE}/notifications?page=${page}`, { headers: headers() }).then(handleResponse),

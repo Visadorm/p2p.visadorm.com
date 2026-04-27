@@ -142,6 +142,56 @@ class TradeInfolist
                     ])
                     ->columns(2),
 
+                Section::make('Sell Trade Details')
+                    ->visible(fn ($record) => $record->type?->value === 'sell')
+                    ->schema([
+                        TextEntry::make('seller_wallet')
+                            ->label('Seller wallet')
+                            ->copyable()
+                            ->limit(30)
+                            ->placeholder('—'),
+                        IconEntry::make('is_cash_trade')
+                            ->label('Cash trade')
+                            ->boolean(),
+                        IconEntry::make('seller_verified_payment')
+                            ->label('Seller verified payment')
+                            ->boolean(),
+                        TextEntry::make('cash_proof_url')
+                            ->label('Cash proof')
+                            ->placeholder('—'),
+                        TextEntry::make('fund_tx_hash')
+                            ->label('Fund tx')
+                            ->copyable()
+                            ->url(fn ($state) => $state ? 'https://sepolia.basescan.org/tx/' . $state : null, true)
+                            ->limit(30)
+                            ->placeholder('—'),
+                        TextEntry::make('join_tx_hash')
+                            ->label('Join tx')
+                            ->copyable()
+                            ->url(fn ($state) => $state ? 'https://sepolia.basescan.org/tx/' . $state : null, true)
+                            ->limit(30)
+                            ->placeholder('—'),
+                        TextEntry::make('mark_paid_tx_hash')
+                            ->label('Mark-paid tx')
+                            ->copyable()
+                            ->url(fn ($state) => $state ? 'https://sepolia.basescan.org/tx/' . $state : null, true)
+                            ->limit(30)
+                            ->placeholder('—'),
+                        TextEntry::make('cancel_tx_hash')
+                            ->label('Cancel tx')
+                            ->copyable()
+                            ->url(fn ($state) => $state ? 'https://sepolia.basescan.org/tx/' . $state : null, true)
+                            ->limit(30)
+                            ->placeholder('—'),
+                        TextEntry::make('dispute_tx_hash')
+                            ->label('Dispute tx')
+                            ->copyable()
+                            ->url(fn ($state) => $state ? 'https://sepolia.basescan.org/tx/' . $state : null, true)
+                            ->limit(30)
+                            ->placeholder('—'),
+                    ])
+                    ->columns(2),
+
                 Section::make(__('trade.section_meeting'))
                     ->schema([
                         TextEntry::make('meeting_location')

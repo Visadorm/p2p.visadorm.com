@@ -1,0 +1,10 @@
+{
+  "network": "baseSepolia",
+  "deployer": "0x5b2D19c7764B668974A5D9DD28A441681Df99652",
+  "usdc": "0x7c33814E64FaC03Fd45C3B11C94a4BFa7cb6E1d1",
+  "soulboundTradeNFT": "0xA91dB431d01aD94310c8cFee2e139720121D1AA2",
+  "tradeEscrowContract": "0x75B60DD962370d5569cDfe97F52833882B9ae66B",
+  "feeWallet": "0xb0858aa1264d5d5433dac742b2c30abfc7798736",
+  "admin": "0x91511adcbbe32bc5202b73741bcd7adfbf9ab00e",
+  "operator": "0x7e5ca1bb6232c80469237eaea094f21029b800ab"
+}

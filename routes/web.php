@@ -89,6 +89,15 @@ Route::get('/trade/{hash}/meeting', function (string $hash) {
     return Inertia::render('Trade/Meeting', ['tradeHash' => $hash]);
 })->name('trade.meeting');
 
+// Sell flow — non-custodial, party-direct wallet broadcasts
+Route::get('/sell/start/{merchantUsername}', function (string $merchantUsername) {
+    return Inertia::render('Sell/Start', ['merchantUsername' => $merchantUsername]);
+})->name('sell.start');
+
+Route::get('/sell/trade/{tradeHash}', function (string $tradeHash) {
+    return Inertia::render('Sell/TradeRoom', ['tradeHash' => $tradeHash]);
+})->name('sell.trade-room');
+
 // Dashboard — authenticated merchant pages
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');

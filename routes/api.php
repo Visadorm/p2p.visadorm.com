@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\MerchantPaymentMethodController;
 use App\Http\Controllers\Api\MerchantTradeController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\SellTradeController;
 use App\Http\Controllers\Api\TradeController;
 use App\Http\Controllers\Api\TradingLinkController;
 use App\Http\Middleware\EnsureWalletAuthenticated;
@@ -121,6 +122,21 @@ Route::middleware(['auth:sanctum', EnsureWalletAuthenticated::class])->group(fun
     Route::get('merchant/trades/{tradeHash}/bank-proof', [MerchantTradeController::class, 'downloadBankProof'])->name('api.merchant.trades.bank-proof');
     Route::get('merchant/trades/{tradeHash}/buyer-id', [MerchantTradeController::class, 'downloadBuyerId'])->name('api.merchant.trades.buyer-id');
     Route::post('merchant/trades/{tradeHash}/confirm', [TradeController::class, 'confirm'])->name('api.trade.confirm');
+
+    // Sell Trades — non-custodial. Backend = indexer only. All on-chain
+    // actions broadcast from party wallets (no operator relay).
+    Route::prefix('sell-trades')->name('api.sell-trades.')->group(function () {
+        Route::post('/', [SellTradeController::class, 'store'])->name('store');
+        Route::post('{tradeHash}/confirm-fund', [SellTradeController::class, 'confirmFund'])->name('confirm-fund');
+        Route::get('{tradeHash}', [SellTradeController::class, 'show'])->name('show');
+        Route::post('{tradeHash}/confirm-join', [SellTradeController::class, 'confirmJoin'])->name('confirm-join');
+        Route::post('{tradeHash}/confirm-mark-paid', [SellTradeController::class, 'confirmMarkPaid'])->name('confirm-mark-paid');
+        Route::post('{tradeHash}/cash-proof', [SellTradeController::class, 'cashProof'])->name('cash-proof');
+        Route::post('{tradeHash}/verify-payment', [SellTradeController::class, 'verifyPayment'])->name('verify-payment');
+        Route::post('{tradeHash}/confirm-release', [SellTradeController::class, 'confirmRelease'])->name('confirm-release');
+        Route::post('{tradeHash}/dispute', [SellTradeController::class, 'openDispute'])->name('dispute');
+        Route::post('{tradeHash}/cancel', [SellTradeController::class, 'cancel'])->name('cancel');
+    });
 
     // Reviews
     Route::post('trade/{tradeHash}/review', [ReviewController::class, 'store'])->name('api.trade.review');

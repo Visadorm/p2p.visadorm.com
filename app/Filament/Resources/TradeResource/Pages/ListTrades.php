@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TradeResource\Pages;
 
 use App\Enums\TradeStatus;
+use App\Enums\TradeType;
 use App\Filament\Resources\TradeResource\TradeResource;
 use App\Models\Trade;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -17,6 +18,15 @@ class ListTrades extends ListRecords
         return [
             'all' => Tab::make('All')
                 ->badge(Trade::count()),
+            'buy' => Tab::make('Buy')
+                ->badge(Trade::where('type', TradeType::Buy)->count())
+                ->modifyQueryUsing(fn ($query) => $query->where('type', TradeType::Buy)),
+            'sell' => Tab::make('Sell')
+                ->badge(Trade::where('type', TradeType::Sell)->count())
+                ->modifyQueryUsing(fn ($query) => $query->where('type', TradeType::Sell)),
+            'cash_sell' => Tab::make('Cash Sell')
+                ->badge(Trade::where('type', TradeType::Sell)->where('is_cash_trade', true)->count())
+                ->modifyQueryUsing(fn ($query) => $query->where('type', TradeType::Sell)->where('is_cash_trade', true)),
             'pending' => Tab::make('Pending')
                 ->badge(Trade::where('status', TradeStatus::Pending)->count())
                 ->modifyQueryUsing(fn ($query) => $query->where('status', TradeStatus::Pending)),

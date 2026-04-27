@@ -34,3 +34,34 @@ export function toRawUsdc(humanAmount) {
   const decimals = (parts[1] || "").padEnd(6, "0").slice(0, 6)
   return whole * 1_000_000n + BigInt(decimals)
 }
+
+/**
+ * Sell flow ABI — every function callable directly from a user wallet.
+ * No operator role on any sell function. Backend never broadcasts these.
+ */
+export const ESCROW_SELL_ABI = [
+  "function openSellTrade(bytes32 tradeId, address merchant, uint256 amount, uint256 expiresAt, bool requireStake, bool isCashTrade, string meetingLocation)",
+  "function joinSellTrade(bytes32 tradeId)",
+  "function markSellPaymentSent(bytes32 tradeId)",
+  "function releaseSellEscrow(bytes32 tradeId)",
+  "function openSellDispute(bytes32 tradeId)",
+  "function cancelSellTradePending(bytes32 tradeId)",
+  "function cancelExpiredSellTrade(bytes32 tradeId)",
+  "event SellTradeOpened(bytes32 indexed tradeId, address indexed seller, address indexed merchant, uint256 amount)",
+  "event SellTradeJoined(bytes32 indexed tradeId, address indexed merchant)",
+  "event SellPaymentMarked(bytes32 indexed tradeId)",
+  "event SellEscrowReleased(bytes32 indexed tradeId, uint256 fee)",
+  "event DisputeOpened(bytes32 indexed tradeId, address indexed openedBy)",
+  "event TradeCancelled(bytes32 indexed tradeId)",
+]
+
+/**
+ * Compute total USDC the seller must approve before openSellTrade:
+ * amount + fee + (optional) stake.
+ */
+export function computeSellApproveAmount(amountUsdc, { feeBps = 20, stakeUsdc = 5, requireStake = true } = {}) {
+  const amt = toRawUsdc(amountUsdc)
+  const fee = (amt * BigInt(feeBps)) / 10000n
+  const stake = requireStake ? toRawUsdc(stakeUsdc) : 0n
+  return (amt + fee + stake).toString()
+}

@@ -30,10 +30,23 @@ class TradesTable
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('seller_wallet')
+                    ->label(__('trade.seller_wallet'))
+                    ->limit(10)
+                    ->searchable()
+                    ->toggleable(),
+
                 TextColumn::make('buyer_wallet')
                     ->label(__('trade.buyer_wallet'))
                     ->limit(10)
                     ->searchable()
+                    ->toggleable(),
+
+                TextColumn::make('is_cash_trade')
+                    ->label('Cash')
+                    ->badge()
+                    ->color(fn ($state) => $state ? 'warning' : 'gray')
+                    ->formatStateUsing(fn ($state) => $state ? 'Cash' : '—')
                     ->toggleable(),
 
                 TextColumn::make('amount_usdc')
@@ -81,6 +94,9 @@ class TradesTable
                 SelectFilter::make('payment_method')
                     ->label(__('trade.payment_method'))
                     ->options(PaymentMethodType::class),
+
+                \Filament\Tables\Filters\TernaryFilter::make('is_cash_trade')
+                    ->label('Cash trade'),
             ])
             ->recordActions([
                 ActionGroup::make([
