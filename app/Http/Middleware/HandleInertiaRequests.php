@@ -92,6 +92,23 @@ class HandleInertiaRequests extends Middleware
                 'rpc_url'              => app(\App\Settings\BlockchainSettings::class)->rpc_url,
                 'network'              => app(\App\Settings\BlockchainSettings::class)->network,
             ], [])),
+            'features' => fn () => Cache::remember('feature_flags', 3600, fn () => rescue(fn () => [
+                'sell_enabled'              => app(\App\Settings\TradeSettings::class)->sell_enabled,
+                'sell_cash_trade_enabled'   => app(\App\Settings\TradeSettings::class)->sell_cash_trade_enabled,
+                'sell_default_expiry_minutes' => app(\App\Settings\TradeSettings::class)->sell_default_expiry_minutes,
+                'sell_anti_spam_stake_usdc' => app(\App\Settings\TradeSettings::class)->sell_anti_spam_stake_usdc,
+                'sell_require_stake_public' => app(\App\Settings\TradeSettings::class)->sell_require_stake_public,
+                'sell_require_stake_link'   => app(\App\Settings\TradeSettings::class)->sell_require_stake_link,
+                'sell_require_stake_cash'   => app(\App\Settings\TradeSettings::class)->sell_require_stake_cash,
+            ], [
+                'sell_enabled' => true,
+                'sell_cash_trade_enabled' => true,
+                'sell_default_expiry_minutes' => 60,
+                'sell_anti_spam_stake_usdc' => 5,
+                'sell_require_stake_public' => true,
+                'sell_require_stake_link' => false,
+                'sell_require_stake_cash' => true,
+            ])),
         ];
     }
 }

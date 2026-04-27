@@ -11,14 +11,20 @@ import "./SoulboundTradeNFT.sol";
 /**
  * @title TradeEscrowContract
  * @dev P2P USDC trading escrow with anti-spam stakes, dispute resolution,
- *      and cash meeting NFT support. All critical logic on-chain.
+ *      cash meeting NFT support, and merchant-mirrored sell flow.
  *
  * Roles:
- *   ADMIN_ROLE    — Gnosis 2-of-3 multisig (dispute resolution, pause, ownership)
- *   OPERATOR_ROLE — Backend server / gas wallet (submits txs on behalf of users)
+ *   ADMIN_ROLE    — Mediator Council Gnosis 2-of-3 multisig (dispute resolution, pause, ownership)
+ *   OPERATOR_ROLE — Backend server / gas wallet (BUY FLOW ONLY — submits txs on behalf of users)
+ *
+ * Buy flow: merchant locks USDC, buyer takes via operator, merchant releases via operator.
+ * Sell flow: seller (user) locks USDC, merchant joins via own wallet, seller releases via own wallet.
+ *            Operator has ZERO authority over sell trades — every state transition requires party
+ *            wallet signature (spec D7, D14, D16).
  *
  * Fee: 0.2% (20 basis points) per trade, sent to feeWallet.
- * Stake: $5 USDC on public trades (returned after completion).
+ *      Always deducted on release AND on dispute resolution (both outcomes).
+ * Stake: $5 USDC anti-spam (returned after completion or dispute resolve).
  */
 contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -39,9 +45,10 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
     SoulboundTradeNFT public immutable tradeNFT;
 
     // ─── Enums ───
-    // Terminal states (no further transitions allowed): Completed, Cancelled, Resolved.
-    // Disputes are only permitted while funds are held in escrow (EscrowLocked or PaymentSent).
-    // Once a trade reaches Completed, the contract permanently rejects any further action.
+    // Buy flow uses: EscrowLocked → PaymentSent → Completed (or Disputed → Resolved, Cancelled)
+    // Sell flow uses: Pending (FUNDED) → EscrowLocked (joined) → PaymentSent (fiat sent) → Completed
+    //                 (or Disputed → Resolved, Cancelled, Expired)
+    // New cases (Pending, Expired) appended at end to preserve existing buy-flow enum positions.
     enum TradeStatus {
         None,
         EscrowLocked,
@@ -49,10 +56,21 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         Completed,
         Disputed,
         Cancelled,
-        Resolved
+        Resolved,
+        Pending,
+        Expired
+    }
+
+    // Trade kind discriminator (added for sell flow). None preserves buy-flow zero-init.
+    enum TradeKind {
+        None,
+        Buy,
+        Sell
     }
 
     // ─── Structs ───
+    // New fields (kind, seller, isCashTrade) appended at end so existing buy-flow
+    // tests using named field access continue to work.
     struct Trade {
         address merchant;
         address buyer;
@@ -63,6 +81,10 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         bool isPrivate;
         uint256 createdAt;
         uint256 expiresAt;
+        // ─── Sell-flow additions ───
+        TradeKind kind;
+        address seller;
+        bool isCashTrade;
     }
 
     // ─── State ───
@@ -85,6 +107,18 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
     event TradeCancelled(bytes32 indexed tradeId);
     event DisputeOpened(bytes32 indexed tradeId, address indexed openedBy);
     event DisputeResolved(bytes32 indexed tradeId, address indexed winner, uint256 amount);
+
+    // Sell-flow events
+    event SellTradeOpened(
+        bytes32 indexed tradeId,
+        address indexed seller,
+        address indexed merchant,
+        uint256 amount
+    );
+    event SellTradeJoined(bytes32 indexed tradeId, address indexed merchant);
+    event SellPaymentMarked(bytes32 indexed tradeId);
+    event SellEscrowReleased(bytes32 indexed tradeId, uint256 fee);
+    event ExpiredTradeCancelled(bytes32 indexed tradeId);
 
     // ─── Constructor ───
     constructor(
@@ -109,11 +143,8 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         _grantRole(OPERATOR_ROLE, _operator);
     }
 
-    // ─── Merchant Escrow ───
+    // ─── Merchant Escrow (Buy Flow) ───
 
-    /**
-     * @dev Merchant deposits USDC into their escrow pool.
-     */
     function depositEscrow(
         address merchant,
         uint256 amount
@@ -126,9 +157,6 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         emit EscrowDeposited(merchant, amount);
     }
 
-    /**
-     * @dev Merchant withdraws unlocked USDC from escrow.
-     */
     function withdrawEscrow(
         address merchant,
         uint256 amount
@@ -143,18 +171,14 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         emit EscrowWithdrawn(merchant, amount);
     }
 
-    /**
-     * @dev Get merchant's available (unlocked) escrow balance.
-     */
     function getAvailableBalance(address merchant) external view returns (uint256) {
         return merchantEscrowBalance[merchant] - merchantLockedInTrades[merchant];
     }
 
-    // ─── Trade Lifecycle ───
+    // ─── Trade Lifecycle (Buy Flow) ───
 
     /**
-     * @dev Initiate a trade. Locks merchant USDC (amount + fee). Buyer stakes $5 on public trades.
-     *      The 0.2% fee is charged to the merchant, not the buyer.
+     * @dev Initiate a buy trade. Locks merchant USDC (amount + fee). Buyer stakes $5 on public trades.
      */
     function initiateTrade(
         bytes32 tradeId,
@@ -194,30 +218,27 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
             status: TradeStatus.EscrowLocked,
             isPrivate: isPrivate,
             createdAt: block.timestamp,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            kind: TradeKind.Buy,
+            seller: address(0),
+            isCashTrade: false
         });
 
         emit TradeCreated(tradeId, merchant, buyer, amount, isPrivate);
     }
 
-    /**
-     * @dev Buyer marks fiat payment as sent.
-     */
     function markPaymentSent(
         bytes32 tradeId
     ) external nonReentrant whenNotPaused onlyRole(OPERATOR_ROLE) {
         Trade storage trade = trades[tradeId];
         require(trade.status == TradeStatus.EscrowLocked, "Invalid trade status");
+        require(trade.kind == TradeKind.Buy, "Operator cannot touch sell");
 
         trade.status = TradeStatus.PaymentSent;
 
         emit PaymentMarkedSent(tradeId);
     }
 
-    /**
-     * @dev Merchant confirms fiat received. Releases full USDC amount to buyer.
-     *      The 0.2% fee is deducted from merchant escrow (already locked at trade initiation).
-     */
     function confirmPayment(
         bytes32 tradeId
     ) external nonReentrant whenNotPaused onlyRole(OPERATOR_ROLE) {
@@ -226,6 +247,7 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
             trade.status == TradeStatus.PaymentSent || trade.status == TradeStatus.EscrowLocked,
             "Invalid trade status"
         );
+        require(trade.kind == TradeKind.Buy, "Operator cannot release sell");
 
         uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
         uint256 total = trade.amount + fee;
@@ -234,15 +256,12 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         merchantLockedInTrades[trade.merchant] -= total;
         merchantEscrowBalance[trade.merchant] -= total;
 
-        // Transfer full USDC amount to buyer (merchant absorbs the fee)
         usdcToken.safeTransfer(trade.buyer, trade.amount);
 
-        // Transfer fee to platform
         if (fee > 0) {
             usdcToken.safeTransfer(feeWallet, fee);
         }
 
-        // Return stake
         if (trade.stakeAmount > 0) {
             usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
         }
@@ -250,9 +269,6 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         emit TradeCompleted(tradeId, fee);
     }
 
-    /**
-     * @dev Cancel a trade before payment is confirmed. Returns stake, unlocks amount + fee.
-     */
     function cancelTrade(
         bytes32 tradeId
     ) external nonReentrant whenNotPaused onlyRole(OPERATOR_ROLE) {
@@ -261,6 +277,7 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
             trade.status == TradeStatus.EscrowLocked,
             "Can only cancel before payment is sent"
         );
+        require(trade.kind == TradeKind.Buy, "Operator cannot touch sell");
 
         uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
         uint256 total = trade.amount + fee;
@@ -268,7 +285,6 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         trade.status = TradeStatus.Cancelled;
         merchantLockedInTrades[trade.merchant] -= total;
 
-        // Forfeit stake to fee wallet (anti-spam penalty)
         if (trade.stakeAmount > 0) {
             usdcToken.safeTransfer(feeWallet, trade.stakeAmount);
         }
@@ -276,15 +292,8 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         emit TradeCancelled(tradeId);
     }
 
-    // ─── Disputes ───
+    // ─── Disputes (Buy Flow) ───
 
-    /**
-     * @dev Open a dispute on a trade. State-based enforcement:
-     *      Disputes are only permitted while USDC is still held in escrow
-     *      (EscrowLocked or PaymentSent). Once a trade is Completed, Cancelled,
-     *      or Resolved, it is terminal and this function reverts. There is no
-     *      post-completion dispute window — finality is on-chain and immediate.
-     */
     function openDispute(
         bytes32 tradeId,
         address openedBy
@@ -294,6 +303,7 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
             trade.status == TradeStatus.EscrowLocked || trade.status == TradeStatus.PaymentSent,
             "Invalid trade status"
         );
+        require(trade.kind == TradeKind.Buy, "Operator cannot touch sell");
         require(
             openedBy == trade.merchant || openedBy == trade.buyer,
             "Not a party to this trade"
@@ -304,16 +314,13 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         emit DisputeOpened(tradeId, openedBy);
     }
 
-    /**
-     * @dev Resolve a dispute. ADMIN_ROLE only (multisig).
-     *      Winner receives the full trade amount; fee comes from merchant escrow.
-     */
     function resolveDispute(
         bytes32 tradeId,
         address winner
     ) external nonReentrant onlyRole(ADMIN_ROLE) {
         Trade storage trade = trades[tradeId];
         require(trade.status == TradeStatus.Disputed, "Trade not in dispute");
+        require(trade.kind == TradeKind.Buy, "Use resolveSellDispute for sell trades");
         require(
             winner == trade.merchant || winner == trade.buyer,
             "Winner must be merchant or buyer"
@@ -326,10 +333,8 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         merchantLockedInTrades[trade.merchant] -= total;
 
         if (winner == trade.merchant) {
-            // Merchant wins: unlock escrow fully, no fee charged
-            // (amount + fee stays in merchantEscrowBalance, just unlocked)
+            // Merchant wins: unlock escrow fully, no fee charged (preserves existing buy behavior)
         } else {
-            // Buyer wins: deduct from merchant escrow, send to buyer + fee to platform
             merchantEscrowBalance[trade.merchant] -= total;
             usdcToken.safeTransfer(winner, trade.amount);
 
@@ -338,7 +343,6 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
             }
         }
 
-        // Return stake
         if (trade.stakeAmount > 0) {
             usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
         }
@@ -346,29 +350,247 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         emit DisputeResolved(tradeId, winner, trade.amount);
     }
 
-    // ─── Cash Meeting NFT ───
+    // ─── Cash Meeting NFT (Buy Flow — operator-driven) ───
 
-    /**
-     * @dev Mint a soulbound NFT for a cash meeting trade.
-     */
     function mintTradeNFT(
         bytes32 tradeId,
         string calldata meetingLocation
     ) external whenNotPaused onlyRole(OPERATOR_ROLE) {
         Trade storage trade = trades[tradeId];
         require(trade.status == TradeStatus.EscrowLocked, "Invalid trade status");
+        require(trade.kind == TradeKind.Buy, "Operator cannot touch sell");
 
         tradeNFT.mint(trade.buyer, tradeId, trade.merchant, trade.amount, meetingLocation);
     }
 
-    /**
-     * @dev Burn NFT after trade completion or cancellation.
-     */
     function burnTradeNFT(bytes32 tradeId) external onlyRole(OPERATOR_ROLE) {
         uint256 tokenId = tradeNFT.tradeIdToTokenId(tradeId);
         require(tokenId != 0, "No NFT for trade");
+        require(trades[tradeId].kind == TradeKind.Buy, "Operator cannot touch sell");
 
         tradeNFT.burn(tokenId);
+    }
+
+    // ─── SELL FLOW ───
+    // Spec: seller is sole authority. Backend has no release power. Buyer (merchant) signals
+    // only via own wallet. Disputes resolved by multisig council. Once released, trade is final.
+    // No OPERATOR_ROLE on any sell function — every state transition requires party wallet sig.
+
+    /**
+     * @dev Seller opens a sell trade — locks `amount + fee + stake` USDC from msg.sender.
+     *      Stake gating: caller passes requireStake based on entry path
+     *      (public merchant page, private link, or cash trade) per backend settings.
+     *      meetingLocation used only when isCashTrade=true; pass empty string otherwise.
+     */
+    function openSellTrade(
+        bytes32 tradeId,
+        address merchant,
+        uint256 amount,
+        uint256 expiresAt,
+        bool requireStake,
+        bool isCashTrade,
+        string calldata meetingLocation
+    ) external nonReentrant whenNotPaused {
+        require(trades[tradeId].status == TradeStatus.None, "Trade already exists");
+        require(amount >= MIN_TRADE_AMOUNT, "Below minimum trade amount");
+        require(expiresAt > block.timestamp, "Expiry must be in future");
+        require(merchant != msg.sender, "Cannot trade with self");
+        require(merchant != address(0), "Invalid merchant");
+
+        uint256 fee = (amount * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 stake = requireStake ? STAKE_AMOUNT : 0;
+        uint256 total = amount + fee + stake;
+
+        usdcToken.safeTransferFrom(msg.sender, address(this), total);
+
+        trades[tradeId] = Trade({
+            merchant: merchant,
+            buyer: merchant, // mirror: merchant receives USDC at release
+            amount: amount,
+            stakeAmount: stake,
+            stakePaidBy: msg.sender,
+            status: TradeStatus.Pending, // FUNDED
+            isPrivate: false,
+            createdAt: block.timestamp,
+            expiresAt: expiresAt,
+            kind: TradeKind.Sell,
+            seller: msg.sender,
+            isCashTrade: isCashTrade
+        });
+
+        emit SellTradeOpened(tradeId, msg.sender, merchant, amount);
+
+        if (isCashTrade) {
+            tradeNFT.mint(msg.sender, tradeId, merchant, amount, meetingLocation);
+        }
+    }
+
+    /**
+     * @dev Merchant (buyer of USDC) joins seller's open trade. Direct wallet call only.
+     */
+    function joinSellTrade(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(trade.status == TradeStatus.Pending, "Not joinable");
+        require(block.timestamp <= trade.expiresAt, "Expired");
+        require(msg.sender == trade.merchant, "Only target merchant");
+
+        trade.status = TradeStatus.EscrowLocked;
+        emit SellTradeJoined(tradeId, msg.sender);
+    }
+
+    /**
+     * @dev Merchant signals fiat sent. Direct wallet call only.
+     */
+    function markSellPaymentSent(bytes32 tradeId) external whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(trade.status == TradeStatus.EscrowLocked, "Bad status");
+        require(msg.sender == trade.merchant, "Only merchant (buyer of USDC)");
+
+        trade.status = TradeStatus.PaymentSent;
+        emit SellPaymentMarked(tradeId);
+    }
+
+    /**
+     * @dev SELLER ONLY — releases escrow to merchant. Direct wallet call.
+     */
+    function releaseSellEscrow(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(msg.sender == trade.seller, "Only seller");
+        require(
+            trade.status == TradeStatus.PaymentSent || trade.status == TradeStatus.EscrowLocked,
+            "Bad status"
+        );
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 merchantAmount = trade.amount - fee;
+
+        trade.status = TradeStatus.Completed;
+
+        usdcToken.safeTransfer(trade.merchant, merchantAmount);
+        if (fee > 0) usdcToken.safeTransfer(feeWallet, fee);
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+
+        if (trade.isCashTrade) {
+            _burnSellTradeNFT(tradeId);
+        }
+
+        emit SellEscrowReleased(tradeId, fee);
+        emit TradeCompleted(tradeId, fee);
+    }
+
+    /**
+     * @dev Open dispute. Direct wallet call by seller or merchant.
+     *      Pending status NOT disputable — no counterparty to dispute against.
+     *      Seller in Pending exits via cancelSellTradePending() (full refund).
+     */
+    function openSellDispute(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(
+            trade.status == TradeStatus.EscrowLocked || trade.status == TradeStatus.PaymentSent,
+            "Dispute requires merchant joined"
+        );
+        require(msg.sender == trade.seller || msg.sender == trade.merchant, "Not party");
+
+        trade.status = TradeStatus.Disputed;
+        emit DisputeOpened(tradeId, msg.sender);
+    }
+
+    /**
+     * @dev Mediator Council resolves sell dispute. ADMIN_ROLE = multisig only.
+     *      Spec S2.5: fee deducted in BOTH outcomes (convergence after decision).
+     *      Winner receives `amount - fee`; fee always routes to feeWallet.
+     */
+    function resolveSellDispute(
+        bytes32 tradeId,
+        address winner
+    ) external nonReentrant onlyRole(ADMIN_ROLE) {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(trade.status == TradeStatus.Disputed, "Trade not in dispute");
+        require(
+            winner == trade.seller || winner == trade.merchant,
+            "Winner must be seller or merchant"
+        );
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 winnerAmount = trade.amount - fee;
+
+        trade.status = TradeStatus.Resolved;
+
+        if (winner == trade.merchant) {
+            usdcToken.safeTransfer(trade.merchant, winnerAmount);
+        } else {
+            usdcToken.safeTransfer(trade.seller, winnerAmount);
+        }
+
+        if (fee > 0) usdcToken.safeTransfer(feeWallet, fee);
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+        if (trade.isCashTrade) _burnSellTradeNFT(tradeId);
+
+        emit DisputeResolved(tradeId, winner, winnerAmount);
+    }
+
+    /**
+     * @dev Seller cancels before merchant joins. Refunds amount + fee + stake.
+     */
+    function cancelSellTradePending(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(trade.status == TradeStatus.Pending, "Already joined");
+        require(msg.sender == trade.seller, "Only seller");
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        trade.status = TradeStatus.Cancelled;
+
+        usdcToken.safeTransfer(trade.seller, trade.amount + fee);
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+        if (trade.isCashTrade) _burnSellTradeNFT(tradeId);
+
+        emit TradeCancelled(tradeId);
+    }
+
+    /**
+     * @dev Permissionless expiry cleanup. Refunds seller fully.
+     */
+    function cancelExpiredSellTrade(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(
+            trade.status == TradeStatus.Pending || trade.status == TradeStatus.EscrowLocked,
+            "Bad status"
+        );
+        require(block.timestamp > trade.expiresAt, "Not expired");
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        trade.status = TradeStatus.Expired;
+
+        usdcToken.safeTransfer(trade.seller, trade.amount + fee);
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+        if (trade.isCashTrade) _burnSellTradeNFT(tradeId);
+
+        emit ExpiredTradeCancelled(tradeId);
+    }
+
+    /**
+     * @dev Internal NFT burn helper for sell trades.
+     */
+    function _burnSellTradeNFT(bytes32 tradeId) internal {
+        uint256 tokenId = tradeNFT.tradeIdToTokenId(tradeId);
+        if (tokenId != 0) {
+            tradeNFT.burn(tokenId);
+        }
     }
 
     // ─── Emergency ───

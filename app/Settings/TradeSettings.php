@@ -23,6 +23,15 @@ class TradeSettings extends Settings
     // Buyer Verification
     public string $default_buyer_verification;
 
+    // Sell Flow
+    public bool $sell_enabled;
+    public bool $sell_cash_trade_enabled;
+    public int $sell_default_expiry_minutes;
+    public int $sell_anti_spam_stake_usdc;
+    public bool $sell_require_stake_public;
+    public bool $sell_require_stake_link;
+    public bool $sell_require_stake_cash;
+
     public static function group(): string
     {
         return 'trade';

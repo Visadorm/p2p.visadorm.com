@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Link } from "@inertiajs/react"
+import { Link, usePage } from "@inertiajs/react"
 import { api } from "@/lib/api"
 import {
   Wallet,
@@ -196,6 +196,7 @@ function formatResponseTime(minutes) {
 }
 
 export default function MerchantProfile({ username }) {
+  const { features } = usePage().props
   const [merchant, setMerchant] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -204,6 +205,26 @@ export default function MerchantProfile({ username }) {
   const [cashPage, setCashPage] = useState(0)
   const [customAmount, setCustomAmount] = useState("")
   const [currency, setCurrency] = useState("")
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return "buy"
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get("action")
+    return t === "sell" ? "sell" : "buy"
+  })
+
+  // Auto-fallback to buy if sell disabled at runtime
+  useEffect(() => {
+    if (activeTab === "sell" && features?.sell_enabled === false) setActiveTab("buy")
+  }, [activeTab, features?.sell_enabled])
+
+  const switchTab = (next) => {
+    setActiveTab(next)
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    if (next === "buy") url.searchParams.delete("action")
+    else url.searchParams.set("action", next)
+    window.history.replaceState({}, "", url.toString())
+  }
 
   useEffect(() => {
     if (!username) return
@@ -723,19 +744,47 @@ export default function MerchantProfile({ username }) {
 
           </div>
 
-          {/* ===== RIGHT COLUMN — Buy Panel ===== */}
+          {/* ===== RIGHT COLUMN — Buy / Sell Panel ===== */}
           <div className="order-first lg:order-none lg:col-span-4 lg:sticky lg:top-24 lg:self-start">
             <Card className="border-border/50 overflow-hidden pt-0">
-              {/* Header */}
-              <div className="relative h-14 flex items-center justify-center text-base font-semibold text-emerald-400 bg-emerald-500/5">
-                Buy USDC
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />
+              {/* Tabs Header */}
+              <div className="grid grid-cols-2 border-b border-border/50">
+                <button
+                  type="button"
+                  onClick={() => switchTab("buy")}
+                  className={`relative h-14 text-base font-semibold transition-colors ${
+                    activeTab === "buy"
+                      ? "text-emerald-400 bg-emerald-500/5"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Buy USDC
+                  {activeTab === "buy" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
+                </button>
+                {features?.sell_enabled !== false && (
+                  <button
+                    type="button"
+                    onClick={() => switchTab("sell")}
+                    className={`relative h-14 text-base font-semibold transition-colors ${
+                      activeTab === "sell"
+                        ? "text-rose-400 bg-rose-500/5"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Sell USDC
+                    {activeTab === "sell" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500" />}
+                  </button>
+                )}
               </div>
 
                 <div className="p-5 space-y-5">
                   {/* Rate */}
                   <div className="flex items-center justify-center">
-                    <span className="inline-flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-base font-bold border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                    <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-base font-bold ${
+                      activeTab === "sell"
+                        ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                    }`}>
                       {currentRate} {currency} = 1 USDC
                     </span>
                   </div>
@@ -744,7 +793,7 @@ export default function MerchantProfile({ username }) {
                   <PresetAmountButtons
                     amounts={AMOUNTS}
                     selectedAmount={selectedAmount}
-                    activeTab="buy"
+                    activeTab={activeTab}
                     onSelect={(amt) => { setSelectedAmount(amt); setCustomAmount(String(amt)) }}
                   />
 
@@ -783,7 +832,7 @@ export default function MerchantProfile({ username }) {
                   {/* Fiat Equivalent */}
                   {amount > 0 && (
                     <div className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-3">
-                      <span className="text-sm text-muted-foreground">You pay</span>
+                      <span className="text-sm text-muted-foreground">{activeTab === "sell" ? "You receive" : "You pay"}</span>
                       <span className="font-mono text-lg font-bold">{fiatAmount.toLocaleString()} {currency}</span>
                     </div>
                   )}
@@ -792,23 +841,34 @@ export default function MerchantProfile({ username }) {
                   <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
                     <Info weight="fill" size={18} className="mt-0.5 shrink-0 text-primary" />
                     <div>
-                      <p className="text-sm font-medium">$5 USDC anti-spam stake</p>
+                      <p className="text-sm font-medium">${features?.sell_anti_spam_stake_usdc ?? 5} USDC anti-spam stake</p>
                       <p className="text-sm text-muted-foreground">Refunded after successful trade</p>
                     </div>
                   </div>
 
-                  {/* CTA Button */}
-                  {primaryLink ? (
-                    <Link href={`/trade/${primaryLink.slug}/start${amount > 0 || currency ? `?${amount > 0 ? `amount=${amount}` : ""}${amount > 0 && currency ? "&" : ""}${currency ? `currency=${currency}` : ""}` : ""}`} className="block">
-                      <Button size="lg" className="w-full text-base font-semibold">
-                        Start Trade <ArrowRight weight="bold" size={18} className="ml-2" />
+                  {/* CTA — Buy or Sell */}
+                  {activeTab === "buy" ? (
+                    primaryLink ? (
+                      <Link href={`/trade/${primaryLink.slug}/start${amount > 0 || currency ? `?${amount > 0 ? `amount=${amount}` : ""}${amount > 0 && currency ? "&" : ""}${currency ? `currency=${currency}` : ""}` : ""}`} className="block">
+                        <Button size="lg" className="w-full text-base font-semibold">
+                          Start Trade <ArrowRight weight="bold" size={18} className="ml-2" />
+                        </Button>
+                      </Link>
+                    ) : (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-center">
+                        <p className="text-sm font-medium text-amber-400">Trading not available yet</p>
+                        <p className="text-sm text-muted-foreground">This merchant hasn't set up a trading link</p>
+                      </div>
+                    )
+                  ) : (
+                    <Link
+                      href={`/sell/start/${merchant.username}${amount > 0 || currency ? `?${amount > 0 ? `amount=${amount}` : ""}${amount > 0 && currency ? "&" : ""}${currency ? `currency=${currency}` : ""}` : ""}`}
+                      className="block"
+                    >
+                      <Button size="lg" className="w-full bg-rose-500 text-base font-semibold hover:bg-rose-600">
+                        Sell USDC <ArrowRight weight="bold" size={18} className="ml-2" />
                       </Button>
                     </Link>
-                  ) : (
-                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-center">
-                      <p className="text-sm font-medium text-amber-400">Trading not available yet</p>
-                      <p className="text-sm text-muted-foreground">This merchant hasn't set up a trading link</p>
-                    </div>
                   )}
 
                   {/* Risk Warning */}

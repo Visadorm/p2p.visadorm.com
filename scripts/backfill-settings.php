@@ -74,6 +74,14 @@ $rows = [
     ['general', 'homepage_variant', '"classic"'],
     ['general', 'weglot_enabled',   'false'],
     ['general', 'weglot_api_key',   'null'],
+    // Sell flow defaults — must exist before TradeSettings hydrates.
+    ['trade', 'sell_enabled',                 'true'],
+    ['trade', 'sell_cash_trade_enabled',      'true'],
+    ['trade', 'sell_default_expiry_minutes',  '60'],
+    ['trade', 'sell_anti_spam_stake_usdc',    '5'],
+    ['trade', 'sell_require_stake_public',    'true'],
+    ['trade', 'sell_require_stake_link',      'false'],
+    ['trade', 'sell_require_stake_cash',      'true'],
 ];
 
 $stmt = $pdo->prepare(
@@ -104,6 +112,7 @@ if ($migrationsTable) {
     $migrationNames = [
         '2026_04_23_000001_add_homepage_and_weglot_to_general_settings',
         '2026_04_24_000001_add_support_url_to_general_settings',
+        '2026_04_28_000001_add_sell_settings_to_trade',
     ];
 
     $checkStmt  = $pdo->prepare('SELECT COUNT(*) FROM migrations WHERE migration = ?');
@@ -118,5 +127,39 @@ if ($migrationsTable) {
     }
 }
 
-echo "inserted={$inserted} considered=" . count($rows) . " marked_migrations={$markedMigrations}\n";
+// Address rotations — UPDATE blockchain settings to current deployed contracts.
+// Each rotation: ['name' => '...', 'old' => '0x...', 'new' => '0x...'].
+// Only updates if the current value matches `old` (case-insensitive). Idempotent.
+$rotations = [
+    [
+        'name' => 'trade_escrow_address',
+        'old'  => '0xc4D74Ddcc4ee8DFa9687C37De8be3A21f813C00D',
+        'new'  => '0x75B60DD962370d5569cDfe97F52833882B9ae66B',
+    ],
+    [
+        'name' => 'usdc_address',
+        'old'  => '0xe3B1038eecea95053256D0e5d52D11A0703D1c4F',
+        'new'  => '0x7c33814E64FaC03Fd45C3B11C94a4BFa7cb6E1d1',
+    ],
+    [
+        'name' => 'soulbound_nft_address',
+        'old'  => '0xD81a5b95550E94C7ec995af6BaaD4ab7281B5FFD',
+        'new'  => '0xA91dB431d01aD94310c8cFee2e139720121D1AA2',
+    ],
+];
+
+$updateStmt = $pdo->prepare(
+    "UPDATE settings SET payload = ?, updated_at = NOW()
+     WHERE `group` = 'blockchain' AND name = ? AND LOWER(payload) = LOWER(?)"
+);
+
+$rotated = 0;
+foreach ($rotations as $r) {
+    $updateStmt->execute(['"' . $r['new'] . '"', $r['name'], '"' . $r['old'] . '"']);
+    if ($updateStmt->rowCount() > 0) {
+        $rotated++;
+    }
+}
+
+echo "inserted={$inserted} considered=" . count($rows) . " marked_migrations={$markedMigrations} rotated={$rotated}\n";
 exit(0);

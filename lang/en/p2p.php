@@ -232,4 +232,40 @@ return [
     'merchants_listing_loaded'    => 'Merchant listing loaded.',
     'countries_loaded'            => 'Countries loaded.',
 
+    // Sell flow
+    'sell_trade_payload_built'        => 'Sell trade payload built. Sign in your wallet to fund.',
+    'sell_trade_funded'               => 'Sell trade funded. Awaiting merchant to accept.',
+    'sell_trade_loaded'               => 'Sell trade loaded.',
+    'sell_trade_joined'               => 'Merchant joined the trade. Awaiting fiat payment.',
+    'sell_trade_payment_marked'       => 'Merchant marked fiat sent. Verify receipt before releasing.',
+    'sell_trade_released'             => 'USDC released to merchant. Trade complete.',
+    'sell_trade_dispute_opened'       => 'Dispute opened. Mediator council will review.',
+    'sell_trade_cancelled'            => 'Sell trade cancelled. Funds returned.',
+    'sell_trade_not_found'            => 'Sell trade not found.',
+    'sell_trade_payment_verified'     => 'Payment receipt confirmed. You may now release.',
+    'sell_trade_cash_proof_uploaded'  => 'Cash payment proof uploaded.',
+    'sell_disabled'                   => 'Sell trades are currently disabled.',
+    'cash_disabled'                   => 'Cash trades are currently disabled.',
+    'tx_verification_failed'          => 'On-chain transaction verification failed.',
+    'tx_wrong_from'                   => 'Transaction was not signed by the expected wallet.',
+    'tx_missing_event'                => 'Required event log not found in transaction receipt.',
+    'tx_already_recorded'             => 'A different transaction is already recorded for this trade step.',
+    'sell_trade_not_disputable'       => 'This trade cannot be disputed in its current state.',
+    'merchant_not_found'              => 'Merchant not found.',
+    'cannot_trade_with_self'          => 'You cannot open a sell trade with your own merchant account.',
+    'below_min'                       => 'Amount is below the minimum allowed.',
+    'above_max'                       => 'Amount exceeds the maximum allowed.',
+    'not_authorized'                  => 'You are not authorized to perform this action.',
+    'bad_trade_status'                => 'Trade is not in the correct state for this action.',
+    'not_sell_trade'                  => 'This action is only valid for sell trades.',
+    'not_cash_trade'                  => 'This action is only valid for cash trades.',
+
+    'notify' => [
+        'sell_trade_joined' => [
+            'subject' => 'Your sell trade was accepted',
+            'line'    => ':merchant accepted your sell offer for :amount :currency. Awaiting fiat payment.',
+        ],
+        'view_trade' => 'View trade',
+    ],
+
 ];

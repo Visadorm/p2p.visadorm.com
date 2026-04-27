@@ -366,6 +366,113 @@ class BlockchainService
         return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
     }
 
+    // ─── Sell Flow — pure encoders (frontend broadcasts from user wallet) ──
+    // No operator broadcasters. Spec: backend has zero authority over sell escrow.
+
+    public function openSellTradeCalldata(string $tradeHash, string $merchant, string $amountWei, int $expiresAt, bool $requireStake, bool $isCashTrade, string $meetingLocation = ''): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall(
+            $this->tradeEscrowAbi,
+            'openSellTrade',
+            [$bytes32Hash, $merchant, $amountWei, $expiresAt, $requireStake, $isCashTrade, $meetingLocation]
+        );
+    }
+
+    public function joinSellTradeCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'joinSellTrade', [$bytes32Hash]);
+    }
+
+    public function markSellPaymentSentCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'markSellPaymentSent', [$bytes32Hash]);
+    }
+
+    public function releaseSellEscrowCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'releaseSellEscrow', [$bytes32Hash]);
+    }
+
+    public function openSellDisputeCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'openSellDispute', [$bytes32Hash]);
+    }
+
+    public function cancelSellTradePendingCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'cancelSellTradePending', [$bytes32Hash]);
+    }
+
+    // ─── Sell Flow — receipt log parsers ─────────────────────────────────
+
+    public function parseSellTradeOpenedLog(array $receipt, string $expectedTradeHash): ?array
+    {
+        return $this->matchEscrowEvent($receipt, 'SellTradeOpened(bytes32,address,address,uint256)', $expectedTradeHash);
+    }
+
+    public function parseSellTradeJoinedLog(array $receipt, string $expectedTradeHash): ?array
+    {
+        return $this->matchEscrowEvent($receipt, 'SellTradeJoined(bytes32,address)', $expectedTradeHash);
+    }
+
+    public function parseSellPaymentMarkedLog(array $receipt, string $expectedTradeHash): ?array
+    {
+        return $this->matchEscrowEvent($receipt, 'SellPaymentMarked(bytes32)', $expectedTradeHash);
+    }
+
+    public function parseSellEscrowReleasedLog(array $receipt, string $expectedTradeHash): ?array
+    {
+        return $this->matchEscrowEvent($receipt, 'SellEscrowReleased(bytes32,uint256)', $expectedTradeHash);
+    }
+
+    public function parseDisputeOpenedLog(array $receipt, string $expectedTradeHash): ?array
+    {
+        return $this->matchEscrowEvent($receipt, 'DisputeOpened(bytes32,address)', $expectedTradeHash);
+    }
+
+    public function parseTradeCancelledLog(array $receipt, string $expectedTradeHash): ?array
+    {
+        return $this->matchEscrowEvent($receipt, 'TradeCancelled(bytes32)', $expectedTradeHash);
+    }
+
+    /**
+     * Find an event log emitted by the trade escrow contract whose first indexed
+     * topic matches the expected tradeHash. Returns ['topics' => [...], 'data' => '0x...']
+     * or null when no matching log present.
+     */
+    private function matchEscrowEvent(array $receipt, string $signature, string $expectedTradeHash): ?array
+    {
+        $topic0 = '0x' . Keccak::hash($signature, 256);
+        $expectedTopic1 = '0x' . str_pad(ltrim($this->tradeHashToBytes32($expectedTradeHash), '0'), 64, '0', STR_PAD_LEFT);
+        $escrowAddr = strtolower($this->tradeEscrowAddress);
+
+        foreach (($receipt['logs'] ?? []) as $log) {
+            if (strtolower($log['address'] ?? '') !== $escrowAddr) continue;
+            $topics = $log['topics'] ?? [];
+            if (($topics[0] ?? '') !== $topic0) continue;
+            if (! isset($topics[1])) continue;
+            if (strtolower($topics[1]) !== strtolower($expectedTopic1)) continue;
+            return ['topics' => $topics, 'data' => $log['data'] ?? '0x'];
+        }
+        return null;
+    }
+
+    /**
+     * Get block timestamp by block number (hex).
+     */
+    public function getBlockTimestamp(string $blockNumberHex): ?int
+    {
+        $block = $this->rpcCall('eth_getBlockByNumber', [$blockNumberHex, false]);
+        if (! is_array($block) || ! isset($block['timestamp'])) return null;
+        return (int) hexdec($block['timestamp']);
+    }
+
     /**
      * Poll for a transaction receipt until mined or attempts exhausted.
      *
