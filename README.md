@@ -90,3 +90,12 @@ This software provides peer-to-peer infrastructure and does not operate as a fin
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+## ™ Trademark & Branding
+
+“Visadorm” and related names are trademarks of Visadorm LLC.
+
+You may use the code under the MIT License, but you may NOT use the
+Visadorm name, logo, or branding without permission.
+
+See the [NOTICE.md](./NOTICE.md) file for full details.
