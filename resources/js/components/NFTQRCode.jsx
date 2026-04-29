@@ -2,8 +2,10 @@ import { QRCodeSVG } from "qrcode.react"
 import { QrCode, ShieldCheck } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 
-export default function NFTQRCode({ tradeHash, tokenId, amountUsdc }) {
-  const verifyUrl = `${window.location.origin}/verify/${tradeHash}`
+export default function NFTQRCode({ tradeHash, tokenId, amountUsdc, verifyUrl: customUrl }) {
+  // Sell flow passes a custom URL (e.g. /sell/trade/{hash}). Buy flow defaults
+  // to /verify/{hash} which renders the existing buy verify page.
+  const verifyUrl = customUrl || `${window.location.origin}/verify/${tradeHash}`
 
   return (
     <Card className="border-border/50">

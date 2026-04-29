@@ -15,6 +15,7 @@ class MerchantTradingLink extends Model
         'merchant_id',
         'slug',
         'type',
+        'flow_type',
         'is_primary',
         'label',
         'is_active',

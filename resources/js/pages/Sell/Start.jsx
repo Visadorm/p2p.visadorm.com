@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton"
+import { SpinnerIcon } from "@phosphor-icons/react"
 import {
   Select,
   SelectContent,
@@ -31,9 +33,12 @@ export default function SellStart({ merchantUsername }) {
   const { merchant: caller, signer, phraseWallet, isAuthenticated } = useWallet()
   const { usdcAddress, escrowAddress } = useBlockchainConfig()
 
+  const initialParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null
+  const initialAmount = initialParams?.get("amount") || ""
+
   const [merchant, setMerchant] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [amount, setAmount] = useState("")
+  const [amount, setAmount] = useState(initialAmount)
   const [paymentMethodId, setPaymentMethodId] = useState("")
   const [isCash, setIsCash] = useState(false)
   const [meetingLocation, setMeetingLocation] = useState("")
@@ -42,7 +47,7 @@ export default function SellStart({ merchantUsername }) {
 
   useEffect(() => {
     api.getMerchantProfile?.(merchantUsername)
-      ?.then((res) => setMerchant(res.data))
+      ?.then((res) => setMerchant(res?.data?.merchant ?? null))
       ?.catch(() => setMerchant(null))
       ?.finally(() => setLoading(false))
   }, [merchantUsername])
@@ -51,8 +56,12 @@ export default function SellStart({ merchantUsername }) {
     if (!features?.sell_enabled) router.visit("/")
   }, [features?.sell_enabled])
 
-  const fiatRate = merchant?.currencies?.[0]?.rate ?? 1
-  const fiatCurrency = merchant?.currencies?.[0]?.currency_code ?? "USD"
+  // Effective rate = market_rate * (1 + markup_percent / 100)
+  const firstCurrency = merchant?.currencies?.[0]
+  const fiatRate = firstCurrency
+    ? Number(firstCurrency.market_rate ?? 1) * (1 + Number(firstCurrency.markup_percent ?? 0) / 100)
+    : 1
+  const fiatCurrency = firstCurrency?.currency_code ?? "USD"
   const paymentMethods = (merchant?.payment_methods ?? []).filter((m) => {
     if (isCash) return m.type === "cash_meeting"
     return m.type !== "cash_meeting"
@@ -101,11 +110,18 @@ export default function SellStart({ merchantUsername }) {
       const approveTx = await usdc.approve(payload.escrow_address, payload.approve_amount)
       await approveTx.wait()
 
-      // 3. Broadcast openSellTrade calldata
+      // Brief delay for RPC node state propagation. Without this, the next
+      // gas estimation can race ahead of the approve and revert with
+      // UNPREDICTABLE_GAS_LIMIT (allowance read still 0).
+      await new Promise((r) => setTimeout(r, 1500))
+
+      // 3. Broadcast openSellTrade calldata. Explicit gasLimit skips
+      // estimateGas (which can also race the approve propagation).
       setStep("opening")
       const tx = await signerForTx.sendTransaction({
         to: payload.escrow_address,
         data: payload.calldata,
+        gasLimit: 500000,
       })
       const receipt = await tx.wait()
       if (receipt.status !== 1) throw new Error("Funding tx reverted")
@@ -124,8 +140,48 @@ export default function SellStart({ merchantUsername }) {
     }
   }
 
-  if (loading) return <PageShell><div className="p-8">Loading…</div></PageShell>
-  if (!merchant) return <PageShell><div className="p-8">Merchant not found.</div></PageShell>
+  if (loading) {
+    return (
+      <PageShell>
+        <main className="mx-auto w-full max-w-xl flex-1 px-4 py-8">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+                <SpinnerIcon size={32} className="animate-spin" />
+                <p className="text-sm">Loading merchant…</p>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+      </PageShell>
+    )
+  }
+
+  if (!merchant) {
+    return (
+      <PageShell>
+        <main className="mx-auto w-full max-w-xl flex-1 px-4 py-8">
+          <Card>
+            <CardContent className="py-16 text-center">
+              <p className="text-lg font-semibold">Merchant not found</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                The merchant you're looking for doesn't exist or is inactive.
+              </p>
+            </CardContent>
+          </Card>
+        </main>
+      </PageShell>
+    )
+  }
 
   return (
     <PageShell>
@@ -182,7 +238,7 @@ export default function SellStart({ merchantUsername }) {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Payment method (where merchant sends fiat)
+                Where you'll receive fiat
               </label>
               <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
                 <SelectTrigger><SelectValue placeholder="Pick a method" /></SelectTrigger>

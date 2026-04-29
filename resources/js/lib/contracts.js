@@ -16,11 +16,12 @@ export const ERC20_ABI = [
 export function useBlockchainConfig() {
   const { blockchain } = usePage().props
   return {
-    usdcAddress:    blockchain?.usdc_address          ?? "",
-    escrowAddress:  blockchain?.trade_escrow_address  ?? "",
-    chainId:        blockchain?.chain_id               ?? 0,
-    rpcUrl:         blockchain?.rpc_url                ?? "",
-    network:        blockchain?.network                ?? "",
+    usdcAddress:    blockchain?.usdc_address           ?? "",
+    escrowAddress:  blockchain?.trade_escrow_address   ?? "",
+    nftAddress:     blockchain?.soulbound_nft_address  ?? "",
+    chainId:        blockchain?.chain_id                ?? 0,
+    rpcUrl:         blockchain?.rpc_url                 ?? "",
+    network:        blockchain?.network                 ?? "",
   }
 }
 

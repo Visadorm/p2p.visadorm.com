@@ -55,7 +55,7 @@ Route::get('/merchant/{username}', function (string $username) {
     return Inertia::render('Merchant/Profile', ['username' => $username]);
 })->name('merchant.profile');
 
-// Short URL — primary trading link (redirects to merchant profile)
+// Short URL — primary trading link. Honors flow_type for buy vs sell entry.
 Route::get('/m/{slug}', function (string $slug) {
     $link = \App\Models\MerchantTradingLink::where('slug', $slug)
         ->where('is_active', true)
@@ -63,6 +63,12 @@ Route::get('/m/{slug}', function (string $slug) {
     if (! $link || ! $link->merchant?->is_active) {
         abort(404);
     }
+
+    // Sell variant → land on sell start page directly
+    if (($link->flow_type ?? 'buy') === 'sell') {
+        return redirect()->route('sell.start', ['merchantUsername' => $link->merchant->username]);
+    }
+
     return redirect()->route('merchant.profile', $link->merchant->username);
 })->name('merchant.short');
 

@@ -88,6 +88,7 @@ class HandleInertiaRequests extends Middleware
             'blockchain' => fn () => Cache::remember('blockchain_config', 3600, fn () => rescue(fn () => [
                 'usdc_address'         => app(\App\Settings\BlockchainSettings::class)->usdc_address,
                 'trade_escrow_address' => app(\App\Settings\BlockchainSettings::class)->trade_escrow_address,
+                'soulbound_nft_address' => app(\App\Settings\BlockchainSettings::class)->soulbound_nft_address,
                 'chain_id'             => app(\App\Settings\BlockchainSettings::class)->chain_id,
                 'rpc_url'              => app(\App\Settings\BlockchainSettings::class)->rpc_url,
                 'network'              => app(\App\Settings\BlockchainSettings::class)->network,

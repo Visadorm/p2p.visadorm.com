@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\TradeType;
 use App\Models\Trade;
 
 class PaymentMarkedNotification extends MerchantNotification
@@ -29,7 +30,9 @@ class PaymentMarkedNotification extends MerchantNotification
 
     protected function getActionUrl(): string
     {
-        return url("/trade/{$this->trade->trade_hash}/release");
+        return $this->trade->type === TradeType::Sell
+            ? url("/sell/trade/{$this->trade->trade_hash}")
+            : url("/trade/{$this->trade->trade_hash}/release");
     }
 
     protected function getActionText(): string

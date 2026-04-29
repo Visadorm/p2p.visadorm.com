@@ -67,6 +67,7 @@ return [
         'view_proof' => 'View Proof',
         'view_trades' => 'View Trades',
         'view_kyc' => 'View KYC',
+        'accept_sell_trade' => 'Accept Sell Trade',
     ],
 
 ];

@@ -25,6 +25,7 @@ return [
         'cancelled' => 'Cancelled',
         'disputed' => 'Disputed',
         'expired' => 'Expired',
+        'resolved' => 'Resolved',
     ],
 
     // Trade Types

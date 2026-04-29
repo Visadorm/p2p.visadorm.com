@@ -94,6 +94,7 @@ class SellTradeService
                 'fee_amount' => $feeAmount,
                 'payment_method' => (string) $data['payment_method_id'],
                 'is_cash_trade' => $isCash,
+                'meeting_location' => $isCash ? ($data['meeting_location'] ?? null) : null,
                 'type' => TradeType::Sell,
                 'status' => TradeStatus::Pending,
                 'stake_amount' => $stakeAmountUsdc,
@@ -145,7 +146,17 @@ class SellTradeService
             throw new RuntimeException(__('p2p.tx_missing_event'));
         }
 
-        $trade->update(['fund_tx_hash' => $txHash]);
+        $updates = ['fund_tx_hash' => $txHash];
+
+        // Cash trade: capture NFT token ID minted in same tx
+        if ($trade->is_cash_trade) {
+            $tokenId = $this->blockchain->parseNftTokenIdFromReceipt($receipt);
+            if ($tokenId !== null) {
+                $updates['nft_token_id'] = $tokenId;
+            }
+        }
+
+        $trade->update($updates);
         event(new TradeInitiated($trade));
 
         return $trade->fresh();

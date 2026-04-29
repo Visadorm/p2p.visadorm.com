@@ -131,9 +131,16 @@ if ($migrationsTable) {
 // Each rotation: ['name' => '...', 'old' => '0x...', 'new' => '0x...'].
 // Only updates if the current value matches `old` (case-insensitive). Idempotent.
 $rotations = [
+    // Local rotation chain (post-rollback)
     [
         'name' => 'trade_escrow_address',
         'old'  => '0xc4D74Ddcc4ee8DFa9687C37De8be3A21f813C00D',
+        'new'  => '0x75B60DD962370d5569cDfe97F52833882B9ae66B',
+    ],
+    // Prod was on intermediate address — also rotate it
+    [
+        'name' => 'trade_escrow_address',
+        'old'  => '0xD9771DF5f6EA84AceeA98F6DF27497c159dd940c',
         'new'  => '0x75B60DD962370d5569cDfe97F52833882B9ae66B',
     ],
     [
@@ -145,6 +152,17 @@ $rotations = [
         'name' => 'soulbound_nft_address',
         'old'  => '0xD81a5b95550E94C7ec995af6BaaD4ab7281B5FFD',
         'new'  => '0xA91dB431d01aD94310c8cFee2e139720121D1AA2',
+    ],
+    // Also handle prior rollback intermediate addresses if present
+    [
+        'name' => 'soulbound_nft_address',
+        'old'  => '0xC31d56C9FfEb857aBB69dd6a686658E3Fd15bB4e',
+        'new'  => '0xA91dB431d01aD94310c8cFee2e139720121D1AA2',
+    ],
+    [
+        'name' => 'usdc_address',
+        'old'  => '0xc4d1c4B5778f61d8DdAB492FEF745FB5133FEC53',
+        'new'  => '0x7c33814E64FaC03Fd45C3B11C94a4BFa7cb6E1d1',
     ],
 ];
 

@@ -272,6 +272,9 @@ class SellTradeController extends Controller
     {
         $callerWallet = strtolower($request->merchant?->wallet_address ?? '');
 
+        // Resolve payment_method ID → human label + type for UI display
+        $paymentMethodInfo = $this->resolvePaymentMethod($trade);
+
         return [
             'trade_hash' => $trade->trade_hash,
             'type' => $trade->type->value,
@@ -289,8 +292,12 @@ class SellTradeController extends Controller
             'exchange_rate' => $trade->exchange_rate,
             'fee_amount' => $trade->fee_amount,
             'payment_method' => $trade->payment_method,
+            'payment_method_label' => $paymentMethodInfo['label'],
+            'payment_method_type' => $paymentMethodInfo['type'],
             'is_cash_trade' => (bool) $trade->is_cash_trade,
             'cash_proof_url' => $trade->cash_proof_url,
+            'meeting_location' => $trade->meeting_location,
+            'nft_token_id' => $trade->nft_token_id,
             'seller_verified_payment' => (bool) $trade->seller_verified_payment,
             'fund_tx_hash' => $trade->fund_tx_hash,
             'join_tx_hash' => $trade->join_tx_hash,
@@ -303,6 +310,24 @@ class SellTradeController extends Controller
             'is_seller' => $callerWallet !== '' && $callerWallet === strtolower((string) $trade->seller_wallet),
             'is_merchant' => $callerWallet !== '' && $callerWallet === strtolower((string) $trade->buyer_wallet),
             'stake_amount' => $trade->stake_amount,
+        ];
+    }
+
+    private function resolvePaymentMethod(Trade $trade): array
+    {
+        $id = is_numeric($trade->payment_method) ? (int) $trade->payment_method : null;
+        if (! $id) {
+            return ['label' => $trade->payment_method, 'type' => $trade->payment_method];
+        }
+
+        $pm = \App\Models\MerchantPaymentMethod::find($id);
+        if (! $pm) {
+            return ['label' => 'Unknown payment method', 'type' => null];
+        }
+
+        return [
+            'label' => $pm->label ?: $pm->type,
+            'type' => $pm->type,
         ];
     }
 }

@@ -16,6 +16,7 @@ enum TradeStatus: string implements HasColor, HasIcon, HasLabel
     case Disputed = 'disputed';
     case Cancelled = 'cancelled';
     case Expired = 'expired';
+    case Resolved = 'resolved';
 
     public function getLabel(): string
     {
@@ -27,6 +28,7 @@ enum TradeStatus: string implements HasColor, HasIcon, HasLabel
             self::Disputed => __('trade.status.disputed'),
             self::Cancelled => __('trade.status.cancelled'),
             self::Expired => __('trade.status.expired'),
+            self::Resolved => __('trade.status.resolved'),
         };
     }
 
@@ -40,6 +42,7 @@ enum TradeStatus: string implements HasColor, HasIcon, HasLabel
             self::Disputed => 'danger',
             self::Cancelled => 'gray',
             self::Expired => 'gray',
+            self::Resolved => 'success',
         };
     }
 
@@ -53,6 +56,7 @@ enum TradeStatus: string implements HasColor, HasIcon, HasLabel
             self::Disputed => Heroicon::OutlinedExclamationTriangle,
             self::Cancelled => Heroicon::OutlinedXCircle,
             self::Expired => Heroicon::OutlinedClock,
+            self::Resolved => Heroicon::OutlinedCheckBadge,
         };
     }
 }
