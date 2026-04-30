@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { router, usePage } from "@inertiajs/react"
+import { Link, router, usePage } from "@inertiajs/react"
 import { toast } from "sonner"
 import {
   Wallet,
@@ -16,6 +16,7 @@ import {
   EyeSlash,
   Key,
   LockKey,
+  SquaresFour,
 } from "@phosphor-icons/react"
 import {
   Dialog,
@@ -272,6 +273,13 @@ export default function ConnectWallet({ variant = "default", size = "default", c
           </div>
 
           <DropdownMenuSeparator />
+
+          <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+            <Link href="/dashboard">
+              <SquaresFour weight="duotone" className="size-4" />
+              Dashboard
+            </Link>
+          </DropdownMenuItem>
 
           <DropdownMenuItem onClick={handleCopy} className="gap-2 cursor-pointer">
             {copied ? (
