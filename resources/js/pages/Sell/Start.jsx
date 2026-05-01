@@ -4,6 +4,7 @@ import { ethers } from "ethers"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -298,16 +299,16 @@ export default function SellStart({ merchantUsername }) {
               </div>
             </div>
 
-            <Button
+            <LoadingButton
               size="lg"
               className="w-full"
-              disabled={submitting || !isAuthenticated || !amount || !paymentMethodId || activeSellTrade?.has_active}
+              loading={submitting}
+              loadingText={step === "approving" ? "Approving USDC…" : step === "opening" ? "Opening trade…" : "Confirming…"}
+              disabled={!isAuthenticated || !amount || !paymentMethodId || activeSellTrade?.has_active}
               onClick={handleSubmit}
             >
-              {submitting
-                ? (step === "approving" ? "Approving USDC…" : step === "opening" ? "Opening trade…" : "Confirming…")
-                : `Sell ${amount || ""} USDC`}
-            </Button>
+              {`Sell ${amount || ""} USDC`}
+            </LoadingButton>
 
             <p className="text-xs text-muted-foreground">
               You will sign two wallet transactions: USDC approval + open trade. After the merchant

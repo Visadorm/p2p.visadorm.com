@@ -18,6 +18,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import ConnectWallet from "@/components/ConnectWallet"
@@ -619,14 +620,16 @@ export default function TradeRelease({ tradeHash }) {
                   >
                     Cancel
                   </Button>
-                  <Button
+                  <LoadingButton
                     variant="destructive"
                     size="sm"
-                    disabled={disputing || !disputeReason.trim()}
+                    loading={disputing}
+                    loadingText="Submitting…"
+                    disabled={!disputeReason.trim()}
                     onClick={handleDispute}
                   >
-                    {disputing ? "Submitting..." : "Submit Dispute"}
-                  </Button>
+                    Submit Dispute
+                  </LoadingButton>
                 </div>
               </CardContent>
             </Card>
@@ -696,15 +699,16 @@ export default function TradeRelease({ tradeHash }) {
                         className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                       />
                       <div className="space-y-2">
-                        <Button
+                        <LoadingButton
                           size="lg"
                           className="w-full gap-2 bg-amber-600 text-white hover:bg-amber-700"
-                          disabled={uploadingEvidence}
+                          loading={uploadingEvidence}
+                          loadingText="Uploading…"
                           onClick={() => evidenceInputRef.current?.click()}
                         >
                           <FileImage weight="bold" size={18} />
-                          {uploadingEvidence ? "Uploading..." : "Upload Evidence"}
-                        </Button>
+                          Upload Evidence
+                        </LoadingButton>
                         <input
                           ref={evidenceInputRef}
                           type="file"
@@ -770,14 +774,16 @@ export default function TradeRelease({ tradeHash }) {
                     maxLength={1000}
                     className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
-                  <Button
+                  <LoadingButton
                     className="w-full gap-2"
                     onClick={handleSubmitReview}
-                    disabled={submittingReview || reviewRating < 1}
+                    loading={submittingReview}
+                    loadingText="Submitting…"
+                    disabled={reviewRating < 1}
                   >
                     <Star weight="bold" size={16} />
-                    {submittingReview ? "Submitting..." : "Submit Review"}
-                  </Button>
+                    Submit Review
+                  </LoadingButton>
                 </div>
               </CardContent>
             </Card>
@@ -794,15 +800,16 @@ export default function TradeRelease({ tradeHash }) {
           {!isTerminal && (
             <div className="space-y-3">
               {canConfirm && (
-                <Button
+                <LoadingButton
                   size="lg"
                   className="w-full gap-2 bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
-                  disabled={confirming}
+                  loading={confirming}
+                  loadingText="Releasing…"
                   onClick={handleConfirm}
                 >
                   <CheckCircle weight="bold" size={20} />
-                  {confirming ? "Releasing..." : "Approve & Release USDC"}
-                </Button>
+                  Approve & Release USDC
+                </LoadingButton>
               )}
               {canDispute && !showDisputeForm && (
                 <Button

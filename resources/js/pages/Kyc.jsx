@@ -25,6 +25,7 @@ import {
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -345,27 +346,29 @@ export default function Kyc() {
                     </Button>
                   )}
                   {doc.status === "not_submitted" && (
-                    <Button
+                    <LoadingButton
                       size="sm"
                       className="gap-1.5"
-                      disabled={uploadingType === doc.type}
+                      loading={uploadingType === doc.type}
+                      loadingText="Uploading…"
                       onClick={() => handleUpload(doc.type)}
                     >
                       <UploadSimple weight="bold" size={14} />
-                      {uploadingType === doc.type ? "Uploading..." : "Upload Document"}
-                    </Button>
+                      Upload Document
+                    </LoadingButton>
                   )}
                   {doc.status === "rejected" && (
-                    <Button
+                    <LoadingButton
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:text-red-400"
-                      disabled={uploadingType === doc.type}
+                      loading={uploadingType === doc.type}
+                      loadingText="Uploading…"
                       onClick={() => handleUpload(doc.type)}
                     >
                       <ArrowCounterClockwise weight="bold" size={14} />
-                      {uploadingType === doc.type ? "Uploading..." : "Resubmit"}
-                    </Button>
+                      Resubmit
+                    </LoadingButton>
                   )}
                 </div>
               </CardContent>
@@ -514,9 +517,9 @@ function IdentityProfileSection() {
         </div>
 
         {!isLocked && (
-          <Button className="w-full" disabled={submitting} onClick={submit}>
-            {submitting ? "Submitting…" : "Submit Identity"}
-          </Button>
+          <LoadingButton className="w-full" loading={submitting} loadingText="Submitting…" onClick={submit}>
+            Submit Identity
+          </LoadingButton>
         )}
         {isLocked && (
           <p className="text-xs text-muted-foreground">

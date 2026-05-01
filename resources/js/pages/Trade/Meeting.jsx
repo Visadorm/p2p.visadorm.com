@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import ConnectWallet from "@/components/ConnectWallet"
@@ -534,15 +535,16 @@ export default function TradeMeeting({ tradeHash }) {
                         className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                       />
                       <div className="space-y-2">
-                        <Button
+                        <LoadingButton
                           size="lg"
                           className="w-full gap-2 bg-amber-600 text-white hover:bg-amber-700"
-                          disabled={uploadingEvidence}
+                          loading={uploadingEvidence}
+                          loadingText="Uploading…"
                           onClick={() => evidenceInputRef.current?.click()}
                         >
                           <UploadSimple weight="bold" size={16} />
-                          {uploadingEvidence ? "Uploading..." : "Upload Evidence"}
-                        </Button>
+                          Upload Evidence
+                        </LoadingButton>
                         <input
                           ref={evidenceInputRef}
                           type="file"
@@ -597,14 +599,16 @@ export default function TradeMeeting({ tradeHash }) {
                     maxLength={1000}
                     className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
-                  <Button
+                  <LoadingButton
                     className="w-full gap-2"
                     onClick={handleSubmitReview}
-                    disabled={submittingReview || reviewRating < 1}
+                    loading={submittingReview}
+                    loadingText="Submitting…"
+                    disabled={reviewRating < 1}
                   >
                     <Star weight="bold" size={16} />
-                    {submittingReview ? "Submitting..." : "Submit Review"}
-                  </Button>
+                    Submit Review
+                  </LoadingButton>
                 </div>
               </CardContent>
             </Card>
@@ -630,13 +634,15 @@ export default function TradeMeeting({ tradeHash }) {
                   maxLength={2000}
                   className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                 />
-                <Button
+                <LoadingButton
                   className="w-full gap-2 bg-amber-600 hover:bg-amber-700"
                   onClick={handleDispute}
-                  disabled={disputing || !disputeReason.trim()}
+                  loading={disputing}
+                  loadingText="Submitting…"
+                  disabled={!disputeReason.trim()}
                 >
-                  {disputing ? "Submitting..." : "Submit Dispute"}
-                </Button>
+                  Submit Dispute
+                </LoadingButton>
               </CardContent>
             </Card>
           )}
@@ -645,15 +651,16 @@ export default function TradeMeeting({ tradeHash }) {
           {!isTerminal && (
             <div className="space-y-3">
               {(tradeStatus === "pending" || tradeStatus === "escrow_locked") && (
-                <Button
+                <LoadingButton
                   size="lg"
                   className="w-full gap-2 bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
-                  disabled={markingPaid}
+                  loading={markingPaid}
+                  loadingText="Marking…"
                   onClick={handleMarkPaid}
                 >
                   <Handshake weight="bold" size={20} />
-                  {markingPaid ? "Marking..." : "I Paid — Met the Seller"}
-                </Button>
+                  I Paid — Met the Seller
+                </LoadingButton>
               )}
               {tradeStatus === "payment_sent" && (
                 <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">

@@ -7,6 +7,7 @@ import PublicHeader from "@/components/PublicHeader"
 import PublicFooter from "@/components/PublicFooter"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -272,9 +273,9 @@ export default function SellTradeRoom({ tradeHash }) {
                   <p className="text-sm text-muted-foreground">
                     Waiting for buyer to join. Buyer has been notified.
                   </p>
-                  <Button variant="outline" disabled={busy} onClick={cancelPending}>
+                  <LoadingButton variant="outline" loading={busy} loadingText="Cancelling…" onClick={cancelPending}>
                     Cancel trade (full refund)
-                  </Button>
+                  </LoadingButton>
                 </>
               )}
               {trade.status === "escrow_locked" && (
@@ -305,14 +306,15 @@ export default function SellTradeRoom({ tradeHash }) {
                   {!trade.is_cash_trade && trade.has_payment_proof && (
                     <PaymentProofViewer trade={trade} />
                   )}
-                  <Button
+                  <LoadingButton
                     size="lg"
                     className="w-full"
-                    disabled={busy}
+                    loading={busy}
+                    loadingText="Releasing…"
                     onClick={releaseEscrow}
                   >
                     Confirm & Release USDC ({trade.amount_usdc})
-                  </Button>
+                  </LoadingButton>
                   <p className="text-xs text-muted-foreground">
                     You sign + pay gas. Once released, the trade is final and irreversible.
                   </p>
@@ -349,7 +351,7 @@ export default function SellTradeRoom({ tradeHash }) {
             <CardHeader><CardTitle>Your actions (Merchant)</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {trade.status === "pending" && (
-                <Button size="lg" className="w-full" disabled={busy} onClick={joinTrade}>Join Trade</Button>
+                <LoadingButton size="lg" className="w-full" loading={busy} loadingText="Joining…" onClick={joinTrade}>Join Trade</LoadingButton>
               )}
               {trade.status === "escrow_locked" && (
                 <>
@@ -365,7 +367,7 @@ export default function SellTradeRoom({ tradeHash }) {
                       <p className="text-sm font-medium">Upload cash proof (optional)</p>
                       <p className="text-xs text-muted-foreground">Photo of cash exchange, signed receipt, or QR scan record.</p>
                       <Input type="file" accept="image/*,application/pdf" onChange={(e) => setProofFile(e.target.files?.[0])} />
-                      <Button size="sm" variant="outline" disabled={busy || !proofFile} onClick={uploadProof}>Upload</Button>
+                      <LoadingButton size="sm" variant="outline" loading={busy} loadingText="Uploading…" disabled={!proofFile} onClick={uploadProof}>Upload</LoadingButton>
                     </div>
                   )}
                   {!trade.is_cash_trade && (
@@ -377,17 +379,18 @@ export default function SellTradeRoom({ tradeHash }) {
                       onUpload={uploadPaymentProof}
                     />
                   )}
-                  <Button size="lg" className="w-full" disabled={busy} onClick={markPaid}>
+                  <LoadingButton size="lg" className="w-full" loading={busy} loadingText={trade.is_cash_trade ? "Confirming…" : "Marking paid…"} onClick={markPaid}>
                     {trade.is_cash_trade ? "I paid seller in cash" : "I Paid"}
-                  </Button>
-                  <Button
+                  </LoadingButton>
+                  <LoadingButton
                     variant="outline"
                     className="w-full"
-                    disabled={busy}
+                    loading={busy}
+                    loadingText="Cancelling…"
                     onClick={buyerCancelPrePayment}
                   >
                     Cancel trade (request mediator review)
-                  </Button>
+                  </LoadingButton>
                 </>
               )}
               {trade.status === "payment_sent" && (
@@ -935,9 +938,9 @@ function PaymentProofUploader({ trade, proofFile, setProofFile, busy, onUpload }
         accept="image/*,application/pdf"
         onChange={(e) => setProofFile(e.target.files?.[0])}
       />
-      <Button size="sm" variant="outline" disabled={busy || !proofFile} onClick={onUpload}>
+      <LoadingButton size="sm" variant="outline" loading={busy} loadingText="Uploading…" disabled={!proofFile} onClick={onUpload}>
         Upload proof
-      </Button>
+      </LoadingButton>
     </div>
   )
 }
@@ -968,11 +971,8 @@ function ExpiryCountdown({ trade }) {
     <div className={`rounded-md border p-3 text-sm ${tone}`}>
       <p className="font-medium">
         {isExpired
-          ? "Trade has expired. Awaiting auto-cancel + refund."
+          ? "This trade has expired."
           : `Time left to complete payment: ${display}`}
-      </p>
-      <p className="mt-1 text-xs opacity-80">
-        After payment is marked, the timer stops and no auto-cancel occurs.
       </p>
     </div>
   )
@@ -985,7 +985,9 @@ function msUntil(isoString) {
 
 // A7: seller views buyer-uploaded cash proof (in-person/NFT trades).
 function CashProofViewer({ trade }) {
+  const [busy, setBusy] = useState(false)
   const open = async () => {
+    setBusy(true)
     try {
       const res = await api.downloadSellCashProof(trade.trade_hash)
       if (!res.ok) throw new Error("Download failed")
@@ -994,21 +996,25 @@ function CashProofViewer({ trade }) {
       window.open(url, "_blank")
     } catch {
       toast.error("Failed to load cash proof")
+    } finally {
+      setBusy(false)
     }
   }
   return (
     <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
       <p className="font-medium text-emerald-400">Buyer uploaded cash proof</p>
-      <Button size="sm" variant="outline" className="mt-2" onClick={open}>
+      <LoadingButton size="sm" variant="outline" className="mt-2" loading={busy} loadingText="Opening…" onClick={open}>
         Open / download proof
-      </Button>
+      </LoadingButton>
     </div>
   )
 }
 
 // A4: seller views buyer-uploaded proof. Sanctum endpoint, must use fetch+blob.
 function PaymentProofViewer({ trade }) {
+  const [busy, setBusy] = useState(false)
   const open = async () => {
+    setBusy(true)
     try {
       const res = await api.downloadSellPaymentProof(trade.trade_hash)
       if (!res.ok) throw new Error("Download failed")
@@ -1017,6 +1023,8 @@ function PaymentProofViewer({ trade }) {
       window.open(url, "_blank")
     } catch {
       toast.error("Failed to load payment proof")
+    } finally {
+      setBusy(false)
     }
   }
   return (
@@ -1027,9 +1035,9 @@ function PaymentProofViewer({ trade }) {
           {new Date(trade.payment_proof_uploaded_at).toLocaleString()}
         </p>
       )}
-      <Button size="sm" variant="outline" className="mt-2" onClick={open}>
+      <LoadingButton size="sm" variant="outline" className="mt-2" loading={busy} loadingText="Opening…" onClick={open}>
         Open / download proof
-      </Button>
+      </LoadingButton>
     </div>
   )
 }
@@ -1114,9 +1122,9 @@ function DisputeBlock({ disputeReason, setDisputeReason, onOpen, busy }) {
           onChange={(e) => setDisputeReason(e.target.value)}
           rows={3}
         />
-        <Button variant="destructive" size="sm" disabled={busy || disputeReason.trim().length < 10} onClick={onOpen}>
+        <LoadingButton variant="destructive" size="sm" loading={busy} loadingText="Opening dispute…" disabled={disputeReason.trim().length < 10} onClick={onOpen}>
           Open dispute (Mediator Council reviews)
-        </Button>
+        </LoadingButton>
       </div>
     </details>
   )
