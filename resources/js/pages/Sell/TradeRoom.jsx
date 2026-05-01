@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useTradeChannel } from "@/hooks/use-trade-channel"
 import { Link, router } from "@inertiajs/react"
 import { ethers } from "ethers"
 import { toast } from "sonner"
@@ -6,16 +7,19 @@ import PublicHeader from "@/components/PublicHeader"
 import PublicFooter from "@/components/PublicFooter"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SpinnerIcon, CopyIcon, MapPinIcon, CertificateIcon } from "@phosphor-icons/react"
+import { SpinnerIcon, CopyIcon, MapPinIcon, CertificateIcon, PaperclipIcon, PaperPlaneTiltIcon, FileTextIcon, ImageIcon, XIcon, SpeakerHighIcon, SpeakerSlashIcon, CheckIcon } from "@phosphor-icons/react"
 import NFTQRCode from "@/components/NFTQRCode"
 import ConnectWallet from "@/components/ConnectWallet"
 import { useWallet } from "@/hooks/useWallet"
 import { api } from "@/lib/api"
 import { ESCROW_SELL_ABI, useBlockchainConfig } from "@/lib/contracts"
+import { humanizeWalletError } from "@/lib/wallet-errors"
+import { Fancybox } from "@fancyapps/ui"
+import "@fancyapps/ui/dist/fancybox/fancybox.css"
+import { playChatChime, flashTabTitle, isChatMuted, setChatMuted } from "@/lib/chat-notify"
 
 export default function SellTradeRoom({ tradeHash }) {
   const { merchant: caller, signer, phraseWallet, isAuthenticated } = useWallet()
@@ -26,7 +30,7 @@ export default function SellTradeRoom({ tradeHash }) {
   const [disputeReason, setDisputeReason] = useState("")
   const [proofFile, setProofFile] = useState(null)
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       const res = await api.getSellTrade(tradeHash)
       setTrade(res.data)
@@ -35,9 +39,11 @@ export default function SellTradeRoom({ tradeHash }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [tradeHash])
 
-  useEffect(() => { refresh() }, [tradeHash])
+  useEffect(() => { refresh() }, [refresh])
+
+  useTradeChannel(tradeHash, refresh, { enabled: !loading })
 
   if (loading) {
     return (
@@ -107,7 +113,7 @@ export default function SellTradeRoom({ tradeHash }) {
       await action()
       await refresh()
     } catch (e) {
-      toast.error(e?.message ?? "Action failed")
+      toast.error(humanizeWalletError(e))
     } finally {
       setBusy(false)
     }
@@ -121,15 +127,15 @@ export default function SellTradeRoom({ tradeHash }) {
     toast.success("Trade cancelled. Funds returned.")
   })
 
-  const verifyPayment = (val) => send(async () => {
-    await api.setSellVerifyPayment(trade.trade_hash, val)
-  })
-
+  // A2: combined verify + release. Confirmation is the wallet signature itself.
   const releaseEscrow = () => send(async () => {
+    if (!trade.seller_verified_payment) {
+      await api.setSellVerifyPayment(trade.trade_hash, true)
+    }
     const tx = await escrow.releaseSellEscrow(trade.trade_hash)
     await tx.wait()
     await api.confirmSellRelease(trade.trade_hash, { release_tx_hash: tx.hash })
-    toast.success("USDC released to merchant")
+    toast.success("USDC released to buyer")
   })
 
   // ─── Merchant actions ───
@@ -153,6 +159,14 @@ export default function SellTradeRoom({ tradeHash }) {
     toast.success("Proof uploaded")
   })
 
+  // A4: buyer uploads fiat payment proof.
+  const uploadPaymentProof = () => send(async () => {
+    if (!proofFile) { toast.error("Pick a file"); return }
+    await api.uploadSellPaymentProof(trade.trade_hash, proofFile)
+    setProofFile(null)
+    toast.success("Payment proof uploaded. Seller has been notified.")
+  })
+
   // ─── Both ───
   const openDispute = () => send(async () => {
     if (disputeReason.trim().length < 10) { toast.error("Reason ≥ 10 chars"); return }
@@ -165,9 +179,26 @@ export default function SellTradeRoom({ tradeHash }) {
     toast.success("Dispute opened")
   })
 
+  const buyerCancelPrePayment = () => send(async () => {
+    const ok = window.confirm(
+      "Cancel this trade? Seller will be refunded in full. " +
+      "Use only if you cannot complete the fiat payment."
+    )
+    if (!ok) return
+    const tx = await escrow.cancelSellTradeByBuyer(trade.trade_hash)
+    await tx.wait()
+    await api.cancelSellTrade(trade.trade_hash, { cancel_tx_hash: tx.hash })
+    toast.success("Trade cancelled. Seller refunded.")
+  })
+
   return (
     <Shell>
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 space-y-4">
+        {/* A9: countdown — only ticks while timer-active (Pending or EscrowLocked) */}
+        {(trade.status === "pending" || trade.status === "escrow_locked") && trade.expires_at && (
+          <ExpiryCountdown trade={trade} />
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -206,7 +237,7 @@ export default function SellTradeRoom({ tradeHash }) {
                     rel="noreferrer"
                     className="font-mono text-xs text-primary hover:underline"
                   >
-                    Token #{trade.nft_token_id} ↗
+                    {trade.trade_hash.slice(0, 10)}…{trade.trade_hash.slice(-8)} ↗
                   </a>
                 </div>
               </div>
@@ -238,29 +269,49 @@ export default function SellTradeRoom({ tradeHash }) {
             <CardContent className="space-y-3">
               {trade.status === "pending" && (
                 <>
-                  <p className="text-sm text-muted-foreground">Waiting for {trade.merchant?.username} to accept this trade. Merchant has been notified.</p>
-                  <Button variant="outline" disabled={busy} onClick={cancelPending}>Cancel trade (full refund)</Button>
+                  <p className="text-sm text-muted-foreground">
+                    Waiting for buyer to join. Buyer has been notified.
+                  </p>
+                  <Button variant="outline" disabled={busy} onClick={cancelPending}>
+                    Cancel trade (full refund)
+                  </Button>
                 </>
               )}
               {trade.status === "escrow_locked" && (
-                <p className="text-sm text-muted-foreground">Merchant joined. Waiting for them to send {trade.amount_fiat} {trade.currency_code} via {trade.payment_method_label || trade.payment_method}.</p>
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Waiting for buyer payment of {trade.amount_fiat} {trade.currency_code} via {trade.payment_method_label || trade.payment_method}.
+                  </p>
+                  {trade.has_payment_proof && (
+                    <PaymentProofViewer trade={trade} />
+                  )}
+                </>
               )}
               {trade.status === "payment_sent" && (
                 <>
-                  <div className="flex items-center justify-between rounded-md border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Verify Payment Received</p>
-                      <p className="text-xs text-muted-foreground">Confirm the fiat payment landed in your bank account before releasing USDC.</p>
-                    </div>
-                    <Switch checked={!!trade.seller_verified_payment} onCheckedChange={verifyPayment} disabled={busy} />
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+                    <p className="text-sm font-medium text-amber-400">
+                      {trade.is_cash_trade ? "Buyer confirmed cash payment" : "Buyer marked as paid"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {trade.is_cash_trade
+                        ? "Confirm you received the cash from the buyer in person, then release USDC. The wallet signature is your final confirmation."
+                        : "Verify the fiat landed in your account before releasing USDC. The wallet signature is your final confirmation."}
+                    </p>
                   </div>
+                  {trade.is_cash_trade && trade.has_cash_proof && (
+                    <CashProofViewer trade={trade} />
+                  )}
+                  {!trade.is_cash_trade && trade.has_payment_proof && (
+                    <PaymentProofViewer trade={trade} />
+                  )}
                   <Button
                     size="lg"
                     className="w-full"
-                    disabled={busy || !trade.seller_verified_payment}
+                    disabled={busy}
                     onClick={releaseEscrow}
                   >
-                    Release USDC ({trade.amount_usdc}) — sign transaction
+                    Confirm & Release USDC ({trade.amount_usdc})
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     You sign + pay gas. Once released, the trade is final and irreversible.
@@ -270,7 +321,7 @@ export default function SellTradeRoom({ tradeHash }) {
               {(trade.status === "escrow_locked" || trade.status === "payment_sent") && (
                 <DisputeBlock disputeReason={disputeReason} setDisputeReason={setDisputeReason} onOpen={openDispute} busy={busy} />
               )}
-              {trade.status === "completed" && <p className="text-sm text-emerald-500">Trade complete. USDC sent to merchant.</p>}
+              {trade.status === "completed" && <p className="text-sm text-emerald-500">Trade complete. USDC sent to buyer.</p>}
               {(trade.status === "cancelled" || trade.status === "expired") && (
                 <p className="text-sm text-muted-foreground">Trade closed. Funds returned to your wallet.</p>
               )}
@@ -279,7 +330,7 @@ export default function SellTradeRoom({ tradeHash }) {
                   <p className="font-medium text-rose-400">Dispute under review</p>
                   <p className="mt-1 text-muted-foreground">
                     Mediator Council is reviewing this dispute. Funds remain locked in escrow.
-                    You'll be notified when the multisig resolves it.
+                    You will be notified when the multisig resolves it.
                   </p>
                 </div>
               )}
@@ -298,16 +349,17 @@ export default function SellTradeRoom({ tradeHash }) {
             <CardHeader><CardTitle>Your actions (Merchant)</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {trade.status === "pending" && (
-                <Button size="lg" className="w-full" disabled={busy} onClick={joinTrade}>Accept this trade</Button>
+                <Button size="lg" className="w-full" disabled={busy} onClick={joinTrade}>Join Trade</Button>
               )}
               {trade.status === "escrow_locked" && (
                 <>
                   <div className="rounded-md border p-3">
                     <p className="text-sm font-medium">Send {trade.amount_fiat} {trade.currency_code} to seller</p>
                     <p className="text-xs text-muted-foreground">
-                      Via your {trade.payment_method_label || trade.payment_method} account. Use trade hash as reference.
+                      Via {trade.payment_method_label || trade.payment_method}. Use trade hash as reference.
                     </p>
                   </div>
+                  <PaymentInstructions trade={trade} />
                   {trade.is_cash_trade && (
                     <div className="space-y-2 rounded-md border p-3">
                       <p className="text-sm font-medium">Upload cash proof (optional)</p>
@@ -316,11 +368,41 @@ export default function SellTradeRoom({ tradeHash }) {
                       <Button size="sm" variant="outline" disabled={busy || !proofFile} onClick={uploadProof}>Upload</Button>
                     </div>
                   )}
-                  <Button size="lg" className="w-full" disabled={busy} onClick={markPaid}>I Paid</Button>
+                  {!trade.is_cash_trade && (
+                    <PaymentProofUploader
+                      trade={trade}
+                      proofFile={proofFile}
+                      setProofFile={setProofFile}
+                      busy={busy}
+                      onUpload={uploadPaymentProof}
+                    />
+                  )}
+                  <Button size="lg" className="w-full" disabled={busy} onClick={markPaid}>
+                    {trade.is_cash_trade ? "I paid seller in cash" : "I Paid"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={busy}
+                    onClick={buyerCancelPrePayment}
+                  >
+                    Cancel trade (request mediator review)
+                  </Button>
                 </>
               )}
               {trade.status === "payment_sent" && (
-                <p className="text-sm text-muted-foreground">Waiting for seller to verify and release. They get final say.</p>
+                <>
+                  <p className="text-sm text-muted-foreground">Waiting for seller to verify and release. They have final say.</p>
+                  {!trade.is_cash_trade && (
+                    <PaymentProofUploader
+                      trade={trade}
+                      proofFile={proofFile}
+                      setProofFile={setProofFile}
+                      busy={busy}
+                      onUpload={uploadPaymentProof}
+                    />
+                  )}
+                </>
               )}
               {(trade.status === "escrow_locked" || trade.status === "payment_sent") && (
                 <DisputeBlock disputeReason={disputeReason} setDisputeReason={setDisputeReason} onOpen={openDispute} busy={busy} />
@@ -336,7 +418,7 @@ export default function SellTradeRoom({ tradeHash }) {
                   <p className="font-medium text-rose-400">Dispute under review</p>
                   <p className="mt-1 text-muted-foreground">
                     Mediator Council is reviewing this dispute. Funds remain locked in escrow.
-                    You'll be notified when the multisig resolves it.
+                    You will be notified when the multisig resolves it.
                   </p>
                 </div>
               )}
@@ -348,8 +430,607 @@ export default function SellTradeRoom({ tradeHash }) {
             </CardContent>
           </Card>
         )}
+
+        {(isSeller || isMerchant) && (
+          <TradeChat trade={trade} myRole={isSeller ? "seller" : "buyer"} />
+        )}
       </main>
     </Shell>
+  )
+}
+
+// A6: render full seller payment instructions to the buyer (bank/online/cash).
+function PaymentInstructions({ trade }) {
+  const details = trade.payment_method_details
+  const type = trade.payment_method_type
+  const provider = trade.payment_method_provider
+  const safetyNote = trade.payment_method_safety_note
+  const location = trade.payment_method_location
+
+  const hasContent = details || provider || safetyNote || location || type === "cash_meeting"
+  if (!hasContent) return null
+
+  const copy = (val, label) => {
+    if (!val) return
+    navigator.clipboard?.writeText(String(val)).then(
+      () => toast.success(`${label} copied`),
+      () => toast.error("Copy failed")
+    )
+  }
+
+  // Pretty key labels: account_number → "Account number"
+  const labelize = (key) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+
+  return (
+    <div className="space-y-2 rounded-md border border-blue-500/30 bg-blue-500/5 p-3 text-sm">
+      <p className="font-medium text-blue-400">Seller payment instructions</p>
+
+      {provider && (
+        <PaymentDetailRow label="Provider" value={provider} onCopy={() => copy(provider, "Provider")} mono />
+      )}
+
+      {type === "cash_meeting" && location && (
+        <PaymentDetailRow label="Meeting location" value={location} onCopy={() => copy(location, "Meeting location")} />
+      )}
+
+      {details && typeof details === "object" && Object.entries(details).map(([key, value]) => (
+        value !== null && value !== "" && (
+          <PaymentDetailRow
+            key={key}
+            label={labelize(key)}
+            value={String(value)}
+            onCopy={() => copy(value, labelize(key))}
+            mono
+          />
+        )
+      ))}
+
+      {safetyNote && (
+        <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-400">
+          {safetyNote}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Always include trade hash as transfer reference.
+      </p>
+    </div>
+  )
+}
+
+function PaymentDetailRow({ label, value, onCopy, mono = false }) {
+  const [copied, setCopied] = useState(false)
+  const handle = () => {
+    onCopy()
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className={`truncate ${mono ? "font-mono text-xs" : ""}`}>{value}</span>
+        <button
+          type="button"
+          onClick={handle}
+          className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-primary"
+          aria-label={`Copy ${label}`}
+          title={copied ? "Copied!" : "Copy"}
+        >
+          {copied ? (
+            <CheckIcon weight="bold" size={12} className="text-emerald-500" />
+          ) : (
+            <CopyIcon weight="duotone" size={14} />
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TradeChat({ trade, myRole }) {
+  const [messages, setMessages] = useState([])
+  const [body, setBody] = useState("")
+  const [attachment, setAttachment] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [locked, setLocked] = useState(false)
+  const [scrollEl, setScrollEl] = useState(null)
+  const [fileEl, setFileEl] = useState(null)
+  const [muted, setMuted] = useState(() => isChatMuted())
+  const lastSeenIdRef = useRef(0)
+  const titleRestoreRef = useRef(null)
+  const initialLoadRef = useRef(true)
+
+  const refresh = async () => {
+    try {
+      const res = await api.listSellTradeMessages(trade.trade_hash)
+      const next = res.data.messages ?? []
+      setMessages(next)
+      setLocked(!!res.data.locked)
+
+      const lastId = lastSeenIdRef.current
+      const newIncoming = next.filter((m) => m.id > lastId && m.sender_role !== myRole)
+
+      if (initialLoadRef.current) {
+        if (next.length) lastSeenIdRef.current = next[next.length - 1].id
+        initialLoadRef.current = false
+      } else if (newIncoming.length) {
+        lastSeenIdRef.current = next[next.length - 1].id
+
+        if (!isChatMuted()) playChatChime()
+
+        if (document.visibilityState !== "visible") {
+          if (titleRestoreRef.current) titleRestoreRef.current()
+          titleRestoreRef.current = flashTabTitle(
+            `(${newIncoming.length}) New trade message`,
+            document.title.replace(/^\(\d+\)\s*[^—]+—\s*/, "")
+          )
+        }
+      }
+    } catch {
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    refresh()
+    const id = setInterval(refresh, 5000)
+    return () => {
+      clearInterval(id)
+      if (titleRestoreRef.current) titleRestoreRef.current()
+    }
+  }, [trade.trade_hash])
+
+  const toggleMute = () => {
+    const next = !muted
+    setMuted(next)
+    setChatMuted(next)
+  }
+
+  useEffect(() => {
+    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight
+  }, [messages.length, scrollEl])
+
+  const send = async () => {
+    if (locked) return
+    if (!body.trim() && !attachment) {
+      toast.error("Type a message or attach a file")
+      return
+    }
+    setSending(true)
+    try {
+      await api.sendSellTradeMessage(trade.trade_hash, { body: body.trim() || undefined, attachment })
+      setBody("")
+      setAttachment(null)
+      if (fileEl) fileEl.value = ""
+      await refresh()
+    } catch (e) {
+      toast.error(e?.message ?? "Send failed")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const fetchAttachmentUrl = async (msgId) => {
+    const res = await api.downloadSellTradeMessageAttachment(trade.trade_hash, msgId)
+    if (!res.ok) throw new Error("Download failed")
+    const blob = await res.blob()
+    return URL.createObjectURL(blob)
+  }
+
+  const openInLightbox = async (msgId) => {
+    try {
+      const url = await fetchAttachmentUrl(msgId)
+      Fancybox.show([{ src: url, type: "image" }], {
+        Toolbar: { display: { right: ["close"] } },
+      })
+    } catch {
+      toast.error("Failed to load image")
+    }
+  }
+
+  const openInNewTab = async (msgId) => {
+    try {
+      const url = await fetchAttachmentUrl(msgId)
+      window.open(url, "_blank")
+    } catch {
+      toast.error("Failed to open file")
+    }
+  }
+
+  const fmtTime = (iso) => {
+    if (!iso) return ""
+    const d = new Date(iso)
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }
+
+  const onKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      if (!sending && (body.trim() || attachment)) send()
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b bg-card/50 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">Trade chat</CardTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Private — visible only to you and the counterparty.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            title={muted ? "Sound muted — click to enable" : "Sound on — click to mute"}
+            aria-label={muted ? "Unmute chat sounds" : "Mute chat sounds"}
+          >
+            {muted ? <SpeakerSlashIcon weight="duotone" size={16} /> : <SpeakerHighIcon weight="duotone" size={16} />}
+          </button>
+        </div>
+      </CardHeader>
+
+      <div
+        ref={setScrollEl}
+        className="flex h-96 flex-col gap-3 overflow-y-auto bg-background/40 px-4 py-4"
+      >
+        {loading && (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Loading…
+          </div>
+        )}
+        {!loading && messages.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-center text-sm text-muted-foreground">
+            <p>No messages yet</p>
+            <p className="text-xs">Coordinate the trade here.</p>
+          </div>
+        )}
+        {messages.map((m) => {
+          const mine = m.sender_role === myRole
+          return (
+            <div key={m.id} className={`flex w-full ${mine ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[78%] ${mine ? "items-end" : "items-start"} flex flex-col gap-1`}>
+                <div
+                  className={`inline-block rounded-2xl px-3 py-2 text-sm leading-snug ${
+                    mine
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-muted text-foreground rounded-bl-sm"
+                  }`}
+                >
+                  {m.body && (
+                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  )}
+                  {m.has_attachment && (
+                    <ChatAttachmentPreview
+                      message={m}
+                      mine={mine}
+                      tradeHash={trade.trade_hash}
+                      onImageClick={() => openInLightbox(m.id)}
+                      onPdfClick={() => openInNewTab(m.id)}
+                      onFileClick={() => openInNewTab(m.id)}
+                    />
+                  )}
+                </div>
+                <span className={`px-1 text-[10px] text-muted-foreground ${mine ? "text-right" : "text-left"}`}>
+                  {fmtTime(m.created_at)}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {locked ? (
+        <div className="border-t px-4 py-3 text-center text-xs text-muted-foreground">
+          Chat is closed. Trade has been completed, cancelled, or resolved.
+        </div>
+      ) : (
+        <div className="border-t bg-card/50 px-3 py-2">
+          {attachment && (
+            <div className="mb-2 flex items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5 text-xs">
+              <div className="flex items-center gap-2 truncate">
+                {attachment.type?.startsWith("image/") ? (
+                  <ImageIcon weight="duotone" size={16} className="text-primary" />
+                ) : (
+                  <FileTextIcon weight="duotone" size={16} className="text-primary" />
+                )}
+                <span className="truncate">{attachment.name}</span>
+                <span className="text-muted-foreground">
+                  · {(attachment.size / 1024).toFixed(0)} KB
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setAttachment(null); if (fileEl) fileEl.value = "" }}
+                className="ml-2 rounded-full p-1 hover:bg-muted"
+              >
+                <XIcon weight="bold" size={12} />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileEl?.click()}
+              disabled={sending}
+              className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+              aria-label="Attach file"
+            >
+              <PaperclipIcon weight="bold" size={18} />
+            </button>
+            <input
+              ref={setFileEl}
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+              disabled={sending}
+              className="hidden"
+            />
+            <input
+              type="text"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Write a message…"
+              disabled={sending}
+              className="flex-1 rounded-full border bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={send}
+              disabled={sending || (!body.trim() && !attachment)}
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              aria-label="Send"
+            >
+              <PaperPlaneTiltIcon weight="fill" size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+    </Card>
+  )
+}
+
+function ChatAttachmentPreview({ message, mine, tradeHash, onImageClick, onPdfClick, onFileClick }) {
+  const att = message.attachment
+  const kind = att?.kind || "file"
+  const sizeLabel = att?.size_bytes ? `${(att.size_bytes / 1024).toFixed(0)} KB` : ""
+  const filename = att?.filename || `attachment-${message.id}`
+
+  if (kind === "image") {
+    return (
+      <ChatImageBubble
+        tradeHash={tradeHash}
+        messageId={message.id}
+        onClick={onImageClick}
+      />
+    )
+  }
+
+  const cardClass = mine
+    ? "bg-primary-foreground/15 hover:bg-primary-foreground/25"
+    : "bg-background/60 hover:bg-background"
+
+  if (kind === "pdf") {
+    return (
+      <button
+        type="button"
+        onClick={onPdfClick}
+        className={`mt-1 flex w-full max-w-[260px] items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs transition-colors ${cardClass}`}
+      >
+        <span className={`flex size-9 shrink-0 items-center justify-center rounded-md ${mine ? "bg-primary-foreground/20" : "bg-rose-500/15"}`}>
+          <FileTextIcon weight="duotone" size={20} className={mine ? "" : "text-rose-400"} />
+        </span>
+        <span className="flex-1 truncate">
+          <span className="block font-medium">{filename}</span>
+          <span className={`text-[10px] ${mine ? "opacity-80" : "text-muted-foreground"}`}>
+            PDF{sizeLabel && ` · ${sizeLabel}`}
+          </span>
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onFileClick}
+      className={`mt-1 flex w-full max-w-[260px] items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs transition-colors ${cardClass}`}
+    >
+      <span className={`flex size-9 shrink-0 items-center justify-center rounded-md ${mine ? "bg-primary-foreground/20" : "bg-muted-foreground/15"}`}>
+        <FileTextIcon weight="duotone" size={20} />
+      </span>
+      <span className="flex-1 truncate">
+        <span className="block font-medium">{filename}</span>
+        <span className={`text-[10px] ${mine ? "opacity-80" : "text-muted-foreground"}`}>
+          {(att?.extension || "FILE").toUpperCase()}{sizeLabel && ` · ${sizeLabel}`}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+function ChatImageBubble({ tradeHash, messageId, onClick }) {
+  const [thumbUrl, setThumbUrl] = useState(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let createdUrl = null
+    api.downloadSellTradeMessageAttachment(tradeHash, messageId)
+      .then((res) => {
+        if (!res.ok) throw new Error("fail")
+        return res.blob()
+      })
+      .then((blob) => {
+        if (cancelled) return
+        createdUrl = URL.createObjectURL(blob)
+        setThumbUrl(createdUrl)
+      })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => {
+      cancelled = true
+      if (createdUrl) URL.revokeObjectURL(createdUrl)
+    }
+  }, [tradeHash, messageId])
+
+  if (failed) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="mt-1 flex items-center gap-2 rounded-md bg-background/60 px-2 py-1.5 text-xs text-muted-foreground hover:bg-background"
+      >
+        <ImageIcon weight="duotone" size={16} />
+        <span>Image (click to view)</span>
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-1 block overflow-hidden rounded-lg border border-white/10 transition-opacity hover:opacity-90"
+      aria-label="Open image"
+    >
+      {thumbUrl ? (
+        <img
+          src={thumbUrl}
+          alt="attachment"
+          className="block max-h-64 max-w-[260px] object-cover"
+        />
+      ) : (
+        <div className="flex h-32 w-48 items-center justify-center bg-background/40 text-xs text-muted-foreground">
+          Loading…
+        </div>
+      )}
+    </button>
+  )
+}
+
+// A4: buyer uploads fiat payment proof image/PDF.
+function PaymentProofUploader({ trade, proofFile, setProofFile, busy, onUpload }) {
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <p className="text-sm font-medium">
+        {trade.has_payment_proof ? "Re-upload payment proof" : "Upload payment proof"}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Screenshot of bank transfer, receipt, or confirmation. Image or PDF, max 5MB. Helps the seller verify your payment.
+      </p>
+      {trade.has_payment_proof && (
+        <p className="text-xs text-emerald-500">
+          Already uploaded {trade.payment_proof_uploaded_at ? new Date(trade.payment_proof_uploaded_at).toLocaleString() : ""}
+        </p>
+      )}
+      <Input
+        type="file"
+        accept="image/*,application/pdf"
+        onChange={(e) => setProofFile(e.target.files?.[0])}
+      />
+      <Button size="sm" variant="outline" disabled={busy || !proofFile} onClick={onUpload}>
+        Upload proof
+      </Button>
+    </div>
+  )
+}
+
+// A9: live countdown to trade expiry. Refreshes every 1s.
+// Visible to both parties when status is Pending or EscrowLocked.
+function ExpiryCountdown({ trade }) {
+  const [remaining, setRemaining] = useState(() => msUntil(trade.expires_at))
+
+  useEffect(() => {
+    const id = setInterval(() => setRemaining(msUntil(trade.expires_at)), 1000)
+    return () => clearInterval(id)
+  }, [trade.expires_at])
+
+  const isExpired = remaining <= 0
+  const minutes = Math.floor(Math.max(0, remaining) / 60000)
+  const seconds = Math.floor((Math.max(0, remaining) % 60000) / 1000)
+  const display = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+
+  // Color escalation: <2 min = red, <10 min = amber, else blue.
+  const tone = isExpired || minutes < 2
+    ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
+    : minutes < 10
+    ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+    : "border-blue-500/40 bg-blue-500/10 text-blue-400"
+
+  return (
+    <div className={`rounded-md border p-3 text-sm ${tone}`}>
+      <p className="font-medium">
+        {isExpired
+          ? "Trade has expired. Awaiting auto-cancel + refund."
+          : `Time left to complete payment: ${display}`}
+      </p>
+      <p className="mt-1 text-xs opacity-80">
+        After payment is marked, the timer stops and no auto-cancel occurs.
+      </p>
+    </div>
+  )
+}
+
+function msUntil(isoString) {
+  if (!isoString) return 0
+  return new Date(isoString).getTime() - Date.now()
+}
+
+// A7: seller views buyer-uploaded cash proof (in-person/NFT trades).
+function CashProofViewer({ trade }) {
+  const open = async () => {
+    try {
+      const res = await api.downloadSellCashProof(trade.trade_hash)
+      if (!res.ok) throw new Error("Download failed")
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, "_blank")
+    } catch {
+      toast.error("Failed to load cash proof")
+    }
+  }
+  return (
+    <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+      <p className="font-medium text-emerald-400">Buyer uploaded cash proof</p>
+      <Button size="sm" variant="outline" className="mt-2" onClick={open}>
+        Open / download proof
+      </Button>
+    </div>
+  )
+}
+
+// A4: seller views buyer-uploaded proof. Sanctum endpoint, must use fetch+blob.
+function PaymentProofViewer({ trade }) {
+  const open = async () => {
+    try {
+      const res = await api.downloadSellPaymentProof(trade.trade_hash)
+      if (!res.ok) throw new Error("Download failed")
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, "_blank")
+    } catch {
+      toast.error("Failed to load payment proof")
+    }
+  }
+  return (
+    <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+      <p className="font-medium text-emerald-400">Buyer uploaded payment proof</p>
+      {trade.payment_proof_uploaded_at && (
+        <p className="text-xs text-muted-foreground">
+          {new Date(trade.payment_proof_uploaded_at).toLocaleString()}
+        </p>
+      )}
+      <Button size="sm" variant="outline" className="mt-2" onClick={open}>
+        Open / download proof
+      </Button>
+    </div>
   )
 }
 
@@ -407,11 +1088,11 @@ function TxRow({ label, hash }) {
 }
 
 function StatusBadge({ status }) {
-  // Labels match spec §S6 state names: FUNDED → IN_PROGRESS → AWAITING_PAYMENT → RELEASED → COMPLETED
+  // A2: labels reflect actual sell-flow state (no "accept" terminology).
   const map = {
-    pending: { label: "Funded", color: "bg-blue-500/15 text-blue-400" },
-    escrow_locked: { label: "In Progress", color: "bg-amber-500/15 text-amber-400" },
-    payment_sent: { label: "Awaiting Payment", color: "bg-purple-500/15 text-purple-400" },
+    pending: { label: "Waiting for Buyer", color: "bg-blue-500/15 text-blue-400" },
+    escrow_locked: { label: "Buyer Paying", color: "bg-amber-500/15 text-amber-400" },
+    payment_sent: { label: "Verify Payment", color: "bg-purple-500/15 text-purple-400" },
     completed: { label: "Completed", color: "bg-emerald-500/15 text-emerald-400" },
     disputed: { label: "Disputed", color: "bg-rose-500/15 text-rose-400" },
     cancelled: { label: "Cancelled", color: "bg-zinc-500/15 text-zinc-400" },

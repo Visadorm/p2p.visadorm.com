@@ -392,7 +392,7 @@ class TradeControllerTest extends TestCase
         $response->assertOk();
 
         $trade->refresh();
-        $this->assertSame(TradeStatus::Cancelled, $trade->status);
+        $this->assertSame(TradeStatus::Cancelling, $trade->status);
     }
 
     public function test_cancel_rejects_completed_trade(): void
@@ -455,8 +455,7 @@ class TradeControllerTest extends TestCase
         $response->assertOk();
 
         $trade->refresh();
-        $this->assertSame(TradeStatus::Completed, $trade->status);
-        $this->assertNotNull($trade->completed_at);
+        $this->assertSame(TradeStatus::Confirming, $trade->status);
 
         Queue::assertPushed(\App\Jobs\ProcessTradeConfirmation::class);
     }

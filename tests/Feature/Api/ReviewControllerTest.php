@@ -126,12 +126,20 @@ class ReviewControllerTest extends TestCase
         ])->assertUnauthorized();
     }
 
-    public function test_store_returns_403_if_user_is_not_the_buyer(): void
+    public function test_store_returns_403_if_user_is_not_party_to_trade(): void
     {
+        // Spec: both buyer and merchant can review. 403 only when caller is neither.
         $trade = $this->createTrade(TradeStatus::Completed);
 
-        // Authenticate as the merchant (not the buyer)
-        Sanctum::actingAs($this->merchantUser);
+        // Authenticate as a random third-party user (not buyer, not merchant)
+        $stranger = User::create([
+            'name' => 'Stranger',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => Hash::make('password'),
+            'wallet_address' => '0xcccccccccccccccccccccccccccccccccccccccc',
+        ]);
+
+        Sanctum::actingAs($stranger);
 
         $this->postJson('/api/trade/' . $trade->trade_hash . '/review', [
             'rating' => 5,

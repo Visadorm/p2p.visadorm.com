@@ -28,6 +28,8 @@ class Trade extends Model
         'payment_method',
         'is_cash_trade',
         'cash_proof_url',
+        'payment_proof_url',
+        'payment_proof_uploaded_at',
         'seller_verified_payment',
         'type',
         'status',
@@ -72,6 +74,7 @@ class Trade extends Model
             'nft_metadata' => 'json',
             'is_cash_trade' => 'boolean',
             'seller_verified_payment' => 'boolean',
+            'payment_proof_uploaded_at' => 'datetime',
             'disputed_at' => 'datetime',
             'completed_at' => 'datetime',
             'expires_at' => 'datetime',
@@ -106,5 +109,10 @@ class Trade extends Model
     public function reviews(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function messages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(TradeMessage::class);
     }
 }

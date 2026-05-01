@@ -27,6 +27,7 @@ import {
   computeSellApproveAmount,
   useBlockchainConfig,
 } from "@/lib/contracts"
+import { humanizeWalletError } from "@/lib/wallet-errors"
 
 export default function SellStart({ merchantUsername }) {
   const { features } = usePage().props
@@ -44,6 +45,7 @@ export default function SellStart({ merchantUsername }) {
   const [meetingLocation, setMeetingLocation] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [step, setStep] = useState("idle") // idle | approving | opening | confirming
+  const [activeSellTrade, setActiveSellTrade] = useState(null) // { has_active, trade_hash, status }
 
   useEffect(() => {
     api.getMerchantProfile?.(merchantUsername)
@@ -55,6 +57,17 @@ export default function SellStart({ merchantUsername }) {
   useEffect(() => {
     if (!features?.sell_enabled) router.visit("/")
   }, [features?.sell_enabled])
+
+  // A1: block opening a second sell trade while one is still active.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setActiveSellTrade(null)
+      return
+    }
+    api.getActiveSellTrade?.()
+      ?.then((res) => setActiveSellTrade(res?.data ?? null))
+      ?.catch(() => setActiveSellTrade(null))
+  }, [isAuthenticated])
 
   // Effective rate = market_rate * (1 + markup_percent / 100)
   const firstCurrency = merchant?.currencies?.[0]
@@ -133,7 +146,7 @@ export default function SellStart({ merchantUsername }) {
       toast.success("Sell trade funded")
       router.visit(`/sell/trade/${payload.trade_hash}`)
     } catch (e) {
-      toast.error(e?.message ?? "Failed to open sell trade")
+      toast.error(humanizeWalletError(e))
     } finally {
       setSubmitting(false)
       setStep("idle")
@@ -205,6 +218,23 @@ export default function SellStart({ merchantUsername }) {
           <CardContent className="space-y-4">
             {!isAuthenticated && <ConnectWallet />}
 
+            {activeSellTrade?.has_active && (
+              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                <p className="font-medium text-amber-400">You already have an active sell trade.</p>
+                <p className="mt-1 text-muted-foreground">
+                  Complete, cancel, or resolve it before opening another.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={() => router.visit(`/sell/trade/${activeSellTrade.trade_hash}`)}
+                >
+                  Go to active trade
+                </Button>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Amount (USDC)</label>
               <Input
@@ -271,7 +301,7 @@ export default function SellStart({ merchantUsername }) {
             <Button
               size="lg"
               className="w-full"
-              disabled={submitting || !isAuthenticated || !amount || !paymentMethodId}
+              disabled={submitting || !isAuthenticated || !amount || !paymentMethodId || activeSellTrade?.has_active}
               onClick={handleSubmit}
             >
               {submitting

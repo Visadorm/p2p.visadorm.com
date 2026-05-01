@@ -2,8 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Enums\TradeStatus;
 use App\Models\Trade;
 use App\Services\BlockchainService;
+use App\Services\TradeService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -23,9 +25,8 @@ class ProcessTradeConfirmation implements ShouldQueue
         public Trade $trade,
     ) {}
 
-    public function handle(BlockchainService $blockchain): void
+    public function handle(BlockchainService $blockchain, TradeService $trades): void
     {
-        // Skip if trade not yet on-chain (initiation job hasn't completed)
         $this->trade->refresh();
         if (! $this->trade->escrow_tx_hash) {
             Log::warning("Trade {$this->trade->trade_hash}: skipping confirm — not yet on-chain");
@@ -34,9 +35,9 @@ class ProcessTradeConfirmation implements ShouldQueue
         }
 
         $txHash = $blockchain->confirmPayment($this->trade->trade_hash);
-        $this->trade->update(['release_tx_hash' => $txHash]);
 
-        // Burn NFT if cash meeting trade with an existing NFT — failure is non-fatal
+        $trades->finalizeConfirmedPayment($this->trade, $txHash);
+
         if (in_array(strtolower($this->trade->payment_method), ['cash_meeting', 'cash meeting']) && $this->trade->nft_token_id) {
             try {
                 $blockchain->burnTradeNFT($this->trade->trade_hash);
@@ -51,9 +52,15 @@ class ProcessTradeConfirmation implements ShouldQueue
 
     public function failed(\Throwable $e): void
     {
+        $this->trade->refresh();
+        if ($this->trade->status === TradeStatus::Confirming) {
+            $this->trade->update(['status' => TradeStatus::PaymentSent]);
+        }
+
         Log::error('Trade blockchain confirmation failed permanently', [
             'trade_hash' => $this->trade->trade_hash,
             'error' => $e->getMessage(),
+            'reverted_status_to' => 'PaymentSent',
         ]);
     }
 }

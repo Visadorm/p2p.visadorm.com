@@ -2,8 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Enums\TradeStatus;
 use App\Models\Trade;
 use App\Services\BlockchainService;
+use App\Services\TradeService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,13 +26,12 @@ class ProcessTradeBlockchainSync implements ShouldQueue
         public string $action,
     ) {}
 
-    public function handle(BlockchainService $blockchain): void
+    public function handle(BlockchainService $blockchain, TradeService $trades): void
     {
-        // Skip if trade not yet on-chain (initiation job hasn't completed)
         $this->trade->refresh();
         if (! $this->trade->escrow_tx_hash) {
             Log::warning("Trade {$this->trade->trade_hash}: skipping {$this->action} — not yet on-chain");
-            $this->release(60); // retry in 60 seconds
+            $this->release(60);
             return;
         }
 
@@ -40,10 +41,16 @@ class ProcessTradeBlockchainSync implements ShouldQueue
             default => throw new \InvalidArgumentException("Unknown action: {$this->action}"),
         };
 
-        $column = $this->action === 'cancel' ? 'release_tx_hash' : 'escrow_tx_hash';
-        $this->trade->update([$column => $txHash]);
+        if ($this->action === 'cancel') {
+            $trades->finalizeCancelledTrade($this->trade, $txHash);
+        } else {
+            $column = match ($this->action) {
+                'mark_paid' => 'mark_paid_tx_hash',
+                default => 'escrow_tx_hash',
+            };
+            $this->trade->update([$column => $txHash]);
+        }
 
-        // Burn NFT on cancel if cash meeting trade with an existing NFT — failure is non-fatal
         if ($this->action === 'cancel'
             && in_array(strtolower($this->trade->payment_method), ['cash_meeting', 'cash meeting'])
             && $this->trade->nft_token_id
@@ -61,6 +68,18 @@ class ProcessTradeBlockchainSync implements ShouldQueue
 
     public function failed(\Throwable $e): void
     {
+        if ($this->action === 'cancel') {
+            $this->trade->refresh();
+            if ($this->trade->status === TradeStatus::Cancelling) {
+                $this->trade->update(['status' => TradeStatus::EscrowLocked]);
+            }
+            Log::error("Trade blockchain cancel failed permanently — reverted to EscrowLocked", [
+                'trade_hash' => $this->trade->trade_hash,
+                'error' => $e->getMessage(),
+            ]);
+            return;
+        }
+
         Log::error("Trade blockchain {$this->action} failed permanently", [
             'trade_hash' => $this->trade->trade_hash,
             'error' => $e->getMessage(),

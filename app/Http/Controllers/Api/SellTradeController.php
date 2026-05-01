@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\TradeStatus;
+use App\Enums\TradeType;
 use App\Http\Controllers\Controller;
 use App\Models\Trade;
 use App\Services\SellTradeService;
@@ -15,6 +17,32 @@ class SellTradeController extends Controller
 {
     public function __construct(private readonly SellTradeService $sellTrades)
     {
+    }
+
+    /**
+     * Active sell trade for the authenticated wallet (A1 gate).
+     * Returns has_active + minimal trade info so the UI can disable
+     * "Sell" button + link the user back to the in-flight trade.
+     */
+    public function active(Request $request): JsonResponse
+    {
+        $wallet = strtolower($request->merchant->wallet_address);
+
+        $trade = Trade::query()
+            ->where('seller_wallet', $wallet)
+            ->where('type', TradeType::Sell)
+            ->whereIn('status', TradeStatus::activeSellStatuses())
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'data' => [
+                'has_active' => (bool) $trade,
+                'trade_hash' => $trade?->trade_hash,
+                'status' => $trade?->status?->value,
+                'amount_usdc' => $trade?->amount_usdc,
+            ],
+        ]);
     }
 
     public function store(Request $request): JsonResponse
@@ -71,6 +99,11 @@ class SellTradeController extends Controller
             return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
         }
 
+        // B12: only seller may confirm their own fund tx.
+        if (! $this->callerIsSeller($request, $trade)) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
         try {
             $trade = $this->sellTrades->confirmFund($trade, $validated['fund_tx_hash']);
         } catch (Throwable $e) {
@@ -107,6 +140,11 @@ class SellTradeController extends Controller
             return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
         }
 
+        // B12: only buyer may confirm their own join tx.
+        if (! $this->callerIsBuyer($request, $trade)) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
         try {
             $trade = $this->sellTrades->confirmJoin($trade, $request->merchant, $validated['join_tx_hash']);
         } catch (Throwable $e) {
@@ -128,6 +166,11 @@ class SellTradeController extends Controller
         $trade = $this->findTrade($tradeHash);
         if (! $trade) {
             return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        // B12: only buyer may mark paid (they're the one sending fiat).
+        if (! $this->callerIsBuyer($request, $trade)) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
         }
 
         try {
@@ -166,6 +209,211 @@ class SellTradeController extends Controller
         ]);
     }
 
+    /**
+     * A4: buyer uploads payment proof image/PDF.
+     */
+    public function paymentProof(Request $request, string $tradeHash): JsonResponse
+    {
+        $validated = $request->validate([
+            'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $trade = $this->findTrade($tradeHash);
+        if (! $trade) {
+            return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        try {
+            $trade = $this->sellTrades->attachPaymentProof($trade, $request->merchant, $validated['proof']);
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'data' => $this->serialize($trade, $request),
+            'message' => __('p2p.sell_trade_payment_proof_uploaded'),
+        ]);
+    }
+
+    /**
+     * A5: list messages for a trade (both parties).
+     */
+    public function listMessages(Request $request, string $tradeHash): JsonResponse
+    {
+        $trade = $this->findTrade($tradeHash);
+        if (! $trade) {
+            return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        $callerWallet = strtolower($request->merchant->wallet_address);
+        $isParty = $callerWallet === strtolower($trade->seller_wallet)
+            || $callerWallet === strtolower($trade->buyer_wallet);
+
+        if (! $isParty) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
+        // 200-message cap protects polling clients from runaway payloads.
+        $messages = $trade->messages()
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get()
+            ->reverse()
+            ->values()
+            ->map(function ($m) {
+                $att = null;
+                if (! empty($m->attachment_path)) {
+                    $ext = strtolower(pathinfo($m->attachment_path, PATHINFO_EXTENSION));
+                    $imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                    $size = 0;
+                    try {
+                        $size = (int) \Illuminate\Support\Facades\Storage::disk('local')->size($m->attachment_path);
+                    } catch (\Throwable) {
+                        $size = 0;
+                    }
+                    $att = [
+                        'extension' => $ext,
+                        'kind' => in_array($ext, $imageExts) ? 'image' : ($ext === 'pdf' ? 'pdf' : 'file'),
+                        'size_bytes' => $size,
+                        'filename' => 'trade-msg-' . $m->id . '.' . $ext,
+                    ];
+                }
+                return [
+                    'id' => $m->id,
+                    'sender_wallet' => $m->sender_wallet,
+                    'sender_role' => $m->sender_role,
+                    'body' => $m->body,
+                    'has_attachment' => ! empty($m->attachment_path),
+                    'attachment' => $att,
+                    'created_at' => $m->created_at?->toIso8601String(),
+                ];
+            });
+
+        $isLocked = in_array($trade->status, [
+            \App\Enums\TradeStatus::Completed,
+            \App\Enums\TradeStatus::Cancelled,
+            \App\Enums\TradeStatus::Expired,
+            \App\Enums\TradeStatus::Resolved,
+        ], true);
+
+        return response()->json([
+            'data' => [
+                'messages' => $messages,
+                'locked' => $isLocked,
+            ],
+        ]);
+    }
+
+    /**
+     * A5: send a message (text + optional image).
+     */
+    public function sendMessage(Request $request, string $tradeHash): JsonResponse
+    {
+        $validated = $request->validate([
+            'body' => ['nullable', 'string', 'max:2000'],
+            'attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $trade = $this->findTrade($tradeHash);
+        if (! $trade) {
+            return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        try {
+            $message = $this->sellTrades->postMessage(
+                $trade,
+                $request->merchant,
+                $validated['body'] ?? null,
+                $validated['attachment'] ?? null,
+            );
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'data' => [
+                'id' => $message->id,
+                'sender_wallet' => $message->sender_wallet,
+                'sender_role' => $message->sender_role,
+                'body' => $message->body,
+                'has_attachment' => ! empty($message->attachment_path),
+                'created_at' => $message->created_at?->toIso8601String(),
+            ],
+        ], 201);
+    }
+
+    /**
+     * A5: stream message attachment. Both parties authorized.
+     */
+    public function downloadMessageAttachment(Request $request, string $tradeHash, int $messageId)
+    {
+        $trade = $this->findTrade($tradeHash);
+        if (! $trade) {
+            return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        $callerWallet = strtolower($request->merchant->wallet_address);
+        $isParty = $callerWallet === strtolower($trade->seller_wallet)
+            || $callerWallet === strtolower($trade->buyer_wallet);
+
+        if (! $isParty) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
+        $message = $trade->messages()->find($messageId);
+        if (! $message || ! $message->attachment_path) {
+            return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('local')
+            ->download($message->attachment_path, 'trade-msg-' . $message->id . '.' . pathinfo($message->attachment_path, PATHINFO_EXTENSION));
+    }
+
+    /**
+     * A7: stream the cash proof file (in-person/NFT cash trades).
+     * Both parties (seller + buyer) authorized.
+     */
+    public function downloadCashProof(Request $request, string $tradeHash)
+    {
+        $trade = $this->findTrade($tradeHash);
+        if (! $trade || ! $trade->cash_proof_url) {
+            return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        $callerWallet = strtolower($request->merchant->wallet_address);
+        $isParty = $callerWallet === strtolower($trade->seller_wallet)
+            || $callerWallet === strtolower($trade->buyer_wallet);
+
+        if (! $isParty) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('local')
+            ->download($trade->cash_proof_url, 'cash-proof-' . substr($trade->trade_hash, 0, 10) . '.' . pathinfo($trade->cash_proof_url, PATHINFO_EXTENSION));
+    }
+
+    /**
+     * A4: stream the proof file. Both parties (seller + buyer) authorized.
+     */
+    public function downloadPaymentProof(Request $request, string $tradeHash)
+    {
+        $trade = $this->findTrade($tradeHash);
+        if (! $trade || ! $trade->payment_proof_url) {
+            return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        $callerWallet = strtolower($request->merchant->wallet_address);
+        $isParty = $callerWallet === strtolower($trade->seller_wallet)
+            || $callerWallet === strtolower($trade->buyer_wallet);
+
+        if (! $isParty) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('local')
+            ->download($trade->payment_proof_url, 'payment-proof-' . substr($trade->trade_hash, 0, 10) . '.' . pathinfo($trade->payment_proof_url, PATHINFO_EXTENSION));
+    }
+
     public function verifyPayment(Request $request, string $tradeHash): JsonResponse
     {
         $validated = $request->validate([
@@ -200,6 +448,11 @@ class SellTradeController extends Controller
             return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
         }
 
+        // B12: only seller may confirm their own release tx.
+        if (! $this->callerIsSeller($request, $trade)) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
         try {
             $trade = $this->sellTrades->confirmRelease($trade, $validated['release_tx_hash']);
         } catch (Throwable $e) {
@@ -222,6 +475,11 @@ class SellTradeController extends Controller
         $trade = $this->findTrade($tradeHash);
         if (! $trade) {
             return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
+        }
+
+        // B12: only seller or buyer may open a dispute.
+        if (! $this->callerIsParty($request, $trade)) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
         }
 
         try {
@@ -247,6 +505,10 @@ class SellTradeController extends Controller
             return response()->json(['message' => __('p2p.sell_trade_not_found')], 404);
         }
 
+        if (! $this->callerIsParty($request, $trade)) {
+            return response()->json(['message' => __('p2p.not_authorized')], 403);
+        }
+
         try {
             $trade = $this->sellTrades->cancel($trade, $validated['cancel_tx_hash']);
         } catch (Throwable $e) {
@@ -257,6 +519,22 @@ class SellTradeController extends Controller
             'data' => $this->serialize($trade, $request),
             'message' => __('p2p.sell_trade_cancelled'),
         ]);
+    }
+
+    // B12: shared authz helpers — controller-layer guard before service receipt check.
+    private function callerIsSeller(Request $request, Trade $trade): bool
+    {
+        return strtolower($request->merchant->wallet_address) === strtolower((string) $trade->seller_wallet);
+    }
+
+    private function callerIsBuyer(Request $request, Trade $trade): bool
+    {
+        return strtolower($request->merchant->wallet_address) === strtolower((string) $trade->buyer_wallet);
+    }
+
+    private function callerIsParty(Request $request, Trade $trade): bool
+    {
+        return $this->callerIsSeller($request, $trade) || $this->callerIsBuyer($request, $trade);
     }
 
     private function findTrade(string $tradeHash): ?Trade
@@ -294,8 +572,15 @@ class SellTradeController extends Controller
             'payment_method' => $trade->payment_method,
             'payment_method_label' => $paymentMethodInfo['label'],
             'payment_method_type' => $paymentMethodInfo['type'],
+            'payment_method_provider' => $paymentMethodInfo['provider'] ?? null,
+            'payment_method_details' => $paymentMethodInfo['details'] ?? null,
+            'payment_method_safety_note' => $paymentMethodInfo['safety_note'] ?? null,
+            'payment_method_location' => $paymentMethodInfo['location'] ?? null,
             'is_cash_trade' => (bool) $trade->is_cash_trade,
-            'cash_proof_url' => $trade->cash_proof_url,
+            'has_cash_proof' => ! empty($trade->cash_proof_url),
+            'cash_proof_url' => $trade->cash_proof_url, // legacy; UI uses download endpoint
+            'payment_proof_uploaded_at' => $trade->payment_proof_uploaded_at?->toIso8601String(),
+            'has_payment_proof' => ! empty($trade->payment_proof_url),
             'meeting_location' => $trade->meeting_location,
             'nft_token_id' => $trade->nft_token_id,
             'seller_verified_payment' => (bool) $trade->seller_verified_payment,
@@ -313,21 +598,44 @@ class SellTradeController extends Controller
         ];
     }
 
+    /**
+     * A6: expose full payment instructions so the buyer sees account details
+     * (bank/online/cash) — not just a generic label.
+     */
     private function resolvePaymentMethod(Trade $trade): array
     {
         $id = is_numeric($trade->payment_method) ? (int) $trade->payment_method : null;
         if (! $id) {
-            return ['label' => $trade->payment_method, 'type' => $trade->payment_method];
+            return [
+                'label' => $trade->payment_method,
+                'type' => $trade->payment_method,
+                'provider' => null,
+                'details' => null,
+                'safety_note' => null,
+                'location' => null,
+            ];
         }
 
         $pm = \App\Models\MerchantPaymentMethod::find($id);
         if (! $pm) {
-            return ['label' => 'Unknown payment method', 'type' => null];
+            return [
+                'label' => 'Unknown payment method',
+                'type' => null,
+                'provider' => null,
+                'details' => null,
+                'safety_note' => null,
+                'location' => null,
+            ];
         }
 
         return [
-            'label' => $pm->label ?: $pm->type,
-            'type' => $pm->type,
+            'label' => $pm->label ?: $pm->type?->value,
+            'type' => $pm->type?->value,
+            'provider' => $pm->provider,
+            // details is a JSON dict with account_name/number/bank/swift/iban/handle/etc.
+            'details' => $pm->details ?: null,
+            'safety_note' => $pm->safety_note,
+            'location' => $pm->location,
         ];
     }
 }

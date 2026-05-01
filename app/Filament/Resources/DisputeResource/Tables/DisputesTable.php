@@ -37,6 +37,17 @@ class DisputesTable
                     ->limit(10)
                     ->searchable(),
 
+                // A3 Path C: surface buyer cancellation requests for fast-track triage.
+                TextColumn::make('reason')
+                    ->label(__('trade.dispute_kind'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => str_starts_with((string) $state, 'BUYER_CANCELLATION_REQUEST:')
+                        ? __('trade.dispute_kind_cancel_request')
+                        : __('trade.dispute_kind_dispute'))
+                    ->color(fn (?string $state): string => str_starts_with((string) $state, 'BUYER_CANCELLATION_REQUEST:')
+                        ? 'warning'
+                        : 'danger'),
+
                 TextColumn::make('trade.amount_usdc')
                     ->label(__('trade.amount_usdc'))
                     ->money('usd')
@@ -56,6 +67,23 @@ class DisputesTable
                 SelectFilter::make('status')
                     ->label(__('p2p.status'))
                     ->options(DisputeStatus::class),
+                SelectFilter::make('kind')
+                    ->label(__('trade.dispute_kind'))
+                    ->options([
+                        'cancel_request' => __('trade.dispute_kind_cancel_request'),
+                        'dispute' => __('trade.dispute_kind_dispute'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (($data['value'] ?? null) === 'cancel_request') {
+                            return $query->where('reason', 'like', 'BUYER_CANCELLATION_REQUEST:%');
+                        }
+                        if (($data['value'] ?? null) === 'dispute') {
+                            return $query->where(function ($q) {
+                                $q->whereNull('reason')->orWhere('reason', 'not like', 'BUYER_CANCELLATION_REQUEST:%');
+                            });
+                        }
+                        return $query;
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),

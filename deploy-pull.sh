@@ -49,7 +49,7 @@ else
     echo "       No composer changes, skipping..."
 fi
 
-echo "[4/9] Running migrations..."
+echo "[4/12] Running migrations..."
 MIGRATE_OUTPUT=$(php artisan migrate --force --no-interaction 2>&1)
 echo "$MIGRATE_OUTPUT"
 if echo "$MIGRATE_OUTPUT" | grep -q "Migrating\|migrated"; then
@@ -58,21 +58,36 @@ else
     MIGRATE_STATUS="Skipped"
 fi
 
-echo "[5/9] Clearing caches..."
+echo "[5/12] Seeding ranks (idempotent)..."
+php artisan db:seed --class=MerchantRankSeeder --force --no-interaction 2>&1 || true
+
+echo "[6/12] Ensuring storage symlink..."
+php artisan storage:link --force 2>&1 || true
+
+echo "[7/12] Seeding country data if empty..."
+COUNTRY_COUNT=$(php artisan tinker --execute='echo \Nnjeim\World\Models\Country::count();' 2>/dev/null | tail -1 | tr -d '[:space:]')
+if [ "$COUNTRY_COUNT" = "0" ]; then
+    echo "       Empty — seeding world..."
+    php -d memory_limit=512M artisan world:install 2>&1 || true
+else
+    echo "       $COUNTRY_COUNT countries present, skipping..."
+fi
+
+echo "[8/12] Clearing caches..."
 php artisan optimize:clear
 
-echo "[6/9] Rebuilding caches..."
+echo "[9/12] Rebuilding caches..."
 php artisan optimize
 php artisan filament:optimize
 
-echo "[7/9] Restarting queue workers..."
+echo "[10/12] Restarting queue workers..."
 php artisan queue:restart
 
-echo "[8/9] Setting permissions..."
+echo "[11/12] Setting permissions..."
 chmod -R 775 storage bootstrap/cache
 chmod -R 755 public/
 
-echo "[9/9] Purging Cloudflare cache..."
+echo "[12/12] Purging Cloudflare cache..."
 CLOUDFLARE_API_TOKEN=$(grep '^CLOUDFLARE_API_TOKEN=' .env 2>/dev/null | cut -d'=' -f2 || true)
 CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-cfat_moNoQPL0lI4H6ITyw2ruADDXpEA3s2sj6eo1opwNa31e61ec}"
 CF_STATUS="Skipped"

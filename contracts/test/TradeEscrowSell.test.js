@@ -382,6 +382,43 @@ describe("TradeEscrowContract — Sell Flow", function () {
     });
   });
 
+  // ─── A3: cancelSellTradeByBuyer (strict spec) ───
+
+  describe("A3: cancelSellTradeByBuyer", function () {
+    it("A3-T1: only buyer (merchant) can call; refunds seller fully", async function () {
+      const { escrow, usdc, seller, merchant, id, amount } = await loadFixture(joinedSellTradeFixture);
+      const fee = (amount * 20n) / 10000n;
+      const stake = ethers.parseUnits("5", 6); // public sell trade has stake
+
+      const balBefore = await usdc.balanceOf(seller.address);
+      await escrow.connect(merchant).cancelSellTradeByBuyer(id);
+      const balAfter = await usdc.balanceOf(seller.address);
+
+      // Seller refunded amount + fee + stake (since seller is stake payer in sell flow)
+      expect(balAfter - balBefore).to.equal(amount + fee + stake);
+    });
+
+    it("A3-T2: seller cannot call cancelSellTradeByBuyer", async function () {
+      const { escrow, seller, id } = await loadFixture(joinedSellTradeFixture);
+      await expect(escrow.connect(seller).cancelSellTradeByBuyer(id)).to.be.revertedWith("Only buyer");
+    });
+
+    it("A3-T3: outsider cannot call cancelSellTradeByBuyer", async function () {
+      const { escrow, outsider, id } = await loadFixture(joinedSellTradeFixture);
+      await expect(escrow.connect(outsider).cancelSellTradeByBuyer(id)).to.be.revertedWith("Only buyer");
+    });
+
+    it("A3-T4: reverts in Pending (before merchant joined)", async function () {
+      const { escrow, merchant, id } = await loadFixture(fundedSellTradeFixture);
+      await expect(escrow.connect(merchant).cancelSellTradeByBuyer(id)).to.be.revertedWith("Only post-join, pre-paid");
+    });
+
+    it("A3-T5: reverts after PaymentSent (spec: cancel removed after paid)", async function () {
+      const { escrow, merchant, id } = await loadFixture(paymentSentFixture);
+      await expect(escrow.connect(merchant).cancelSellTradeByBuyer(id)).to.be.revertedWith("Only post-join, pre-paid");
+    });
+  });
+
   // ─── Operator boundaries (T30-T32) ───
 
   describe("Operator boundary guards", function () {

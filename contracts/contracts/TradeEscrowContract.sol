@@ -292,6 +292,80 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         emit TradeCancelled(tradeId);
     }
 
+    // ─── B1: Buy flow user-signed wrappers ────────────────────────────
+    //
+    // The original buy flow methods are gated by OPERATOR_ROLE for legacy
+    // compatibility. These wrappers let buyer/merchant sign their own
+    // state transitions directly so the operator key no longer holds
+    // unilateral release/cancel power. Operator paths remain as fallback.
+
+    function markPaymentSentByBuyer(
+        bytes32 tradeId
+    ) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.status == TradeStatus.EscrowLocked, "Invalid trade status");
+        require(trade.kind == TradeKind.Buy, "Use sell-flow methods for sell trades");
+        require(msg.sender == trade.buyer, "Only buyer can mark paid");
+
+        trade.status = TradeStatus.PaymentSent;
+        emit PaymentMarkedSent(tradeId);
+    }
+
+    function confirmPaymentByMerchant(
+        bytes32 tradeId
+    ) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(
+            trade.status == TradeStatus.PaymentSent || trade.status == TradeStatus.EscrowLocked,
+            "Invalid trade status"
+        );
+        require(trade.kind == TradeKind.Buy, "Use sell-flow methods for sell trades");
+        require(msg.sender == trade.merchant, "Only merchant can confirm");
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 total = trade.amount + fee;
+
+        trade.status = TradeStatus.Completed;
+        merchantLockedInTrades[trade.merchant] -= total;
+        merchantEscrowBalance[trade.merchant] -= total;
+
+        usdcToken.safeTransfer(trade.buyer, trade.amount);
+
+        if (fee > 0) {
+            usdcToken.safeTransfer(feeWallet, fee);
+        }
+
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+
+        emit TradeCompleted(tradeId, fee);
+    }
+
+    function cancelTradeByMerchant(
+        bytes32 tradeId
+    ) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(
+            trade.status == TradeStatus.EscrowLocked,
+            "Can only cancel before payment is sent"
+        );
+        require(trade.kind == TradeKind.Buy, "Use sell-flow methods for sell trades");
+        require(msg.sender == trade.merchant, "Only merchant can cancel buy trade");
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 total = trade.amount + fee;
+
+        trade.status = TradeStatus.Cancelled;
+        merchantLockedInTrades[trade.merchant] -= total;
+
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(feeWallet, trade.stakeAmount);
+        }
+
+        emit TradeCancelled(tradeId);
+    }
+
     // ─── Disputes (Buy Flow) ───
 
     function openDispute(
@@ -546,6 +620,24 @@ contract TradeEscrowContract is AccessControl, Pausable, ReentrancyGuard {
         require(trade.kind == TradeKind.Sell, "Not sell");
         require(trade.status == TradeStatus.Pending, "Already joined");
         require(msg.sender == trade.seller, "Only seller");
+
+        uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
+        trade.status = TradeStatus.Cancelled;
+
+        usdcToken.safeTransfer(trade.seller, trade.amount + fee);
+        if (trade.stakeAmount > 0) {
+            usdcToken.safeTransfer(trade.stakePaidBy, trade.stakeAmount);
+        }
+        if (trade.isCashTrade) _burnSellTradeNFT(tradeId);
+
+        emit TradeCancelled(tradeId);
+    }
+
+    function cancelSellTradeByBuyer(bytes32 tradeId) external nonReentrant whenNotPaused {
+        Trade storage trade = trades[tradeId];
+        require(trade.kind == TradeKind.Sell, "Not sell");
+        require(trade.status == TradeStatus.EscrowLocked, "Only post-join, pre-paid");
+        require(msg.sender == trade.merchant, "Only buyer");
 
         uint256 fee = (trade.amount * FEE_BPS) / BPS_DENOMINATOR;
         trade.status = TradeStatus.Cancelled;

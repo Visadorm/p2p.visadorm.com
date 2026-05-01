@@ -65,6 +65,59 @@ class MerchantInfolist
                     ])
                     ->columns(2),
 
+                Section::make(__('merchant.section_identity_profile'))
+                    ->description(fn ($record) => $record->kyc_locked_at
+                        ? 'Submitted '.$record->kyc_locked_at->diffForHumans().'. Use Unlock KYC to allow re-submission.'
+                        : 'Not submitted by user yet.')
+                    ->schema([
+                        TextEntry::make('kyc_locked_at')
+                            ->label('Submission status')
+                            ->formatStateUsing(fn ($state) => $state
+                                ? '🔒 Locked at '.$state->toDayDateTimeString()
+                                : 'Not submitted')
+                            ->columnSpanFull(),
+
+                        TextEntry::make('full_name')
+                            ->label('Full legal name')
+                            ->placeholder('—'),
+
+                        TextEntry::make('date_of_birth')
+                            ->label('Date of birth')
+                            ->date()
+                            ->placeholder('—'),
+
+                        TextEntry::make('country_of_birth')
+                            ->label('Country of birth')
+                            ->placeholder('—'),
+
+                        TextEntry::make('country_of_residence')
+                            ->label('Country of residence')
+                            ->placeholder('—'),
+
+                        TextEntry::make('full_address')
+                            ->label('Full address')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+
+                        TextEntry::make('business_name')
+                            ->label('Business name')
+                            ->placeholder('—'),
+
+                        TextEntry::make('country_of_incorporation')
+                            ->label('Country of incorporation')
+                            ->placeholder('—'),
+
+                        TextEntry::make('kyc_unlocked_by')
+                            ->label('Last unlocked by (user id)')
+                            ->placeholder('—'),
+
+                        TextEntry::make('kyc_unlocked_at')
+                            ->label('Last unlocked at')
+                            ->dateTime()
+                            ->placeholder('—'),
+                    ])
+                    ->columns(2),
+
                 Section::make(__('merchant.section_stats'))
                     ->schema([
                         TextEntry::make('total_trades')

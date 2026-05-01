@@ -81,7 +81,7 @@ export const api = {
 
     // Countries
     getCountries: () =>
-        fetch(`${API_BASE}/countries`, { headers: headers() }).then(handleResponse),
+        fetch(`${API_BASE}/p2p-countries`, { headers: headers() }).then(handleResponse),
 
     // Merchant
     getDashboard: () =>
@@ -255,6 +255,17 @@ export const api = {
     getKycDocuments: () =>
         fetch(`${API_BASE}/merchant/kyc`, { headers: headers() }).then(handleResponse),
 
+    // A8: identity profile read + submit. Locked once submitted.
+    getKycProfile: () =>
+        fetch(`${API_BASE}/merchant/kyc/profile`, { headers: headers() }).then(handleResponse),
+
+    submitKycProfile: (data) =>
+        fetch(`${API_BASE}/merchant/kyc/profile`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(data),
+        }).then(handleResponse),
+
     uploadKycDocument: (type, file) => {
         const formData = new FormData();
         formData.append('type', type);
@@ -316,6 +327,9 @@ export const api = {
 
     // Sell Trades — non-custodial flow. All on-chain actions broadcast from
     // user wallet; backend records tx hashes after RPC verification.
+    getActiveSellTrade: () =>
+        fetch(`${API_BASE}/sell-trades/active`, { headers: headers() }).then(handleResponse),
+
     openSellTrade: (body) =>
         fetch(`${API_BASE}/sell-trades`, {
             method: 'POST',
@@ -357,6 +371,93 @@ export const api = {
             body: formData,
         }).then(handleResponse);
     },
+
+    // A4: buyer uploads fiat payment proof (image/PDF, ≤5MB).
+    uploadSellPaymentProof: (tradeHash, file) => {
+        const formData = new FormData();
+        formData.append('proof', file);
+        return fetch(`${API_BASE}/sell-trades/${tradeHash}/payment-proof`, {
+            method: 'POST',
+            headers: fileHeaders(),
+            body: formData,
+        }).then(handleResponse);
+    },
+
+    // A4: fetch the auth-protected payment proof file.
+    downloadSellPaymentProof: (tradeHash) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/payment-proof`, { headers: fileHeaders() }),
+
+    // A7: fetch the auth-protected cash proof file (in-person trades).
+    downloadSellCashProof: (tradeHash) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/cash-proof`, { headers: fileHeaders() }),
+
+    // B1: user-signed buy flow. Body shape:
+    //   - {} → returns { escrow_address, calldata } for wallet to broadcast
+    //   - { tx_hash } → records broadcast result + advances DB state
+    userSignedMarkPaid: (tradeHash, body = {}) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/user-signed/mark-paid`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    userSignedConfirm: (tradeHash, body = {}) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/user-signed/confirm`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    userSignedCancel: (tradeHash, body = {}) =>
+        fetch(`${API_BASE}/trade/${tradeHash}/user-signed/cancel`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        }).then(handleResponse),
+
+    // B1 high-level helpers: bundle "fetch calldata → wallet sign → record tx".
+    // Caller passes a signer (ethers v6 Signer). Use these from JSX components.
+    runUserSignedAction: async (action, tradeHash, signer) => {
+        const apiFn = {
+            'mark-paid': fetch.bind(null, `${API_BASE}/trade/${tradeHash}/user-signed/mark-paid`),
+            'confirm':   fetch.bind(null, `${API_BASE}/trade/${tradeHash}/user-signed/confirm`),
+            'cancel':    fetch.bind(null, `${API_BASE}/trade/${tradeHash}/user-signed/cancel`),
+        }[action]
+        if (!apiFn) throw new Error(`Unknown user-signed action: ${action}`)
+
+        const init = (body) => ({ method: 'POST', headers: headers(), body: JSON.stringify(body) })
+
+        // 1. Get calldata
+        const payloadRes = await apiFn(init({})).then(handleResponse)
+        const { escrow_address, calldata } = payloadRes.data
+
+        // 2. User signs + broadcasts
+        const tx = await signer.sendTransaction({ to: escrow_address, data: calldata, gasLimit: 500000 })
+        const receipt = await tx.wait()
+        if (receipt.status !== 1) throw new Error('Transaction reverted')
+
+        // 3. Record on backend
+        const recordRes = await apiFn(init({ tx_hash: tx.hash })).then(handleResponse)
+        return { tx_hash: tx.hash, ...recordRes }
+    },
+
+    // A5: trade chat — list, send (text or text+image), download attachment.
+    listSellTradeMessages: (tradeHash) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/messages`, { headers: headers() }).then(handleResponse),
+
+    sendSellTradeMessage: (tradeHash, { body, attachment }) => {
+        const formData = new FormData()
+        if (body) formData.append('body', body)
+        if (attachment) formData.append('attachment', attachment)
+        return fetch(`${API_BASE}/sell-trades/${tradeHash}/messages`, {
+            method: 'POST',
+            headers: fileHeaders(),
+            body: formData,
+        }).then(handleResponse)
+    },
+
+    downloadSellTradeMessageAttachment: (tradeHash, messageId) =>
+        fetch(`${API_BASE}/sell-trades/${tradeHash}/messages/${messageId}/attachment`, { headers: fileHeaders() }),
 
     setSellVerifyPayment: (tradeHash, verified) =>
         fetch(`${API_BASE}/sell-trades/${tradeHash}/verify-payment`, {

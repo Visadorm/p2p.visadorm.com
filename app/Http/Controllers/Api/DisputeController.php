@@ -62,7 +62,8 @@ class DisputeController extends Controller
 
         try {
             $txHash = $this->blockchainService->openDispute($trade->trade_hash, $userWallet);
-            $dispute->update(['resolution_tx_hash' => $txHash]);
+            // B8: open tx goes to its own column so resolveDispute won't overwrite it.
+            $dispute->update(['open_tx_hash' => $txHash]);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('openDispute blockchain error', [
                 'trade_hash' => $trade->trade_hash,

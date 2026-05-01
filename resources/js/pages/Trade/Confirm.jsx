@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { toast } from "sonner"
-import { Link, router } from "@inertiajs/react"
+import { Link, router, usePage } from "@inertiajs/react"
+import { humanizeWalletError } from "@/lib/wallet-errors"
 import {
   Copy,
   UploadSimple,
@@ -41,7 +42,7 @@ function getStepsFromStatus(status) {
 
 
 export default function TradeConfirm({ tradeHash }) {
-  const { isAuthenticated } = useWallet()
+  const { isAuthenticated, signer, phraseWallet } = useWallet()
   const [trade, setTrade] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -124,11 +125,20 @@ export default function TradeConfirm({ tradeHash }) {
   const handleMarkPaid = async () => {
     setMarkingPaid(true)
     try {
-      const res = await api.markPaid(tradeHash)
-      setTrade(res.data)
-      toast.success(res.message || "Payment marked as sent")
+      // B1: when feature flag is on, buyer signs the on-chain mark-paid tx
+      // directly. Otherwise legacy operator-broadcast path runs.
+      const features = usePage().props.features
+      if (features?.buy_user_signed_enabled && (signer || phraseWallet)) {
+        await api.runUserSignedAction("mark-paid", tradeHash, phraseWallet ?? signer)
+        await fetchTrade()
+        toast.success("Payment marked as sent")
+      } else {
+        const res = await api.markPaid(tradeHash)
+        setTrade(res.data)
+        toast.success(res.message || "Payment marked as sent")
+      }
     } catch (err) {
-      toast.error(err.message || "Failed to mark payment")
+      toast.error(humanizeWalletError(err))
     } finally {
       setMarkingPaid(false)
     }
@@ -169,11 +179,21 @@ export default function TradeConfirm({ tradeHash }) {
   const handleCancel = async () => {
     setCancelling(true)
     try {
-      const res = await api.cancelTrade(tradeHash)
-      toast.success(res.message || "Trade cancelled")
+      const features = usePage().props.features
+      if (features?.buy_user_signed_enabled && (signer || phraseWallet)) {
+        // B1: merchant-signed cancel. Buyer can't cancel under spec — but
+        // existing legacy endpoint allowed it; keep that behavior on the
+        // legacy branch only. Under the user-signed flag, this path is
+        // merchant-only (controller enforces).
+        await api.runUserSignedAction("cancel", tradeHash, phraseWallet ?? signer)
+      } else {
+        const res = await api.cancelTrade(tradeHash)
+        toast.success(res.message || "Trade cancelled")
+      }
+      toast.success("Trade cancelled")
       router.visit("/trades")
     } catch (err) {
-      toast.error(err.message || "Failed to cancel trade")
+      toast.error(humanizeWalletError(err))
     } finally {
       setCancelling(false)
     }

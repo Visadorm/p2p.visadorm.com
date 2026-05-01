@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Events;
+
+use App\Models\Trade;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class PaymentProofUploaded implements ShouldBroadcast
+{
+    use Dispatchable, SerializesModels;
+
+    public function __construct(
+        public Trade $trade,
+    ) {}
+
+    public function broadcastOn(): array
+    {
+        return [new Channel('trade.' . $this->trade->trade_hash)];
+    }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'trade_hash' => $this->trade->trade_hash,
+            'status' => $this->trade->status->value ?? $this->trade->status,
+            'has_payment_proof' => true,
+            'uploaded_at' => $this->trade->payment_proof_uploaded_at?->toIso8601String(),
+        ];
+    }
+}

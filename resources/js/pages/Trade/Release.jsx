@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { toast } from "sonner"
-import { Link, router } from "@inertiajs/react"
+import { Link, router, usePage } from "@inertiajs/react"
+import { humanizeWalletError } from "@/lib/wallet-errors"
 import {
   CheckCircle,
   ShieldCheck,
@@ -40,7 +41,7 @@ function getStepsFromStatus(status) {
 
 
 export default function TradeRelease({ tradeHash }) {
-  const { isAuthenticated } = useWallet()
+  const { isAuthenticated, signer, phraseWallet } = useWallet()
   const [trade, setTrade] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -96,12 +97,18 @@ export default function TradeRelease({ tradeHash }) {
   const handleConfirm = async () => {
     setConfirming(true)
     try {
-      await api.confirmTrade(tradeHash)
+      // B1: when feature flag is on, merchant signs the on-chain release
+      // directly. Otherwise legacy operator-broadcast path runs.
+      const features = usePage().props.features
+      if (features?.buy_user_signed_enabled && (signer || phraseWallet)) {
+        await api.runUserSignedAction("confirm", tradeHash, phraseWallet ?? signer)
+      } else {
+        await api.confirmTrade(tradeHash)
+      }
       toast.success("USDC released to buyer")
-      // Re-fetch full trade data to update the UI
       await fetchTrade()
     } catch (err) {
-      toast.error(err.message || "Failed to confirm trade")
+      toast.error(humanizeWalletError(err))
     } finally {
       setConfirming(false)
     }

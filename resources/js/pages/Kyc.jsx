@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import DashboardLayout from "@/layouts/DashboardLayout"
 import { api } from "@/lib/api"
 import { useWallet } from "@/hooks/useWallet"
@@ -18,6 +19,9 @@ import {
   Lightning,
   Drop,
   Buildings,
+  Lock,
+  LockOpen,
+  SpinnerIcon,
 } from "@phosphor-icons/react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -275,31 +279,8 @@ export default function Kyc() {
         </p>
       </div>
 
-      {/* Personal & Business Name (admin-managed, read-only for users) */}
-      {(fullName || businessName) && (
-        <Card className="border-border/50">
-          <CardHeader>
-            <CardTitle className="text-base">Verified Identity</CardTitle>
-            <p className="text-sm text-muted-foreground">Your legal name is managed by the admin after KYC verification</p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {fullName && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Full Name</span>
-                  <span className="text-sm font-semibold">{fullName}</span>
-                </div>
-              )}
-              {businessName && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Business Name</span>
-                  <span className="text-sm font-semibold">{businessName}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* A8: Identity profile — locks once submitted, only admin can amend */}
+      <IdentityProfileSection />
 
       {/* Document Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -427,3 +408,242 @@ export default function Kyc() {
 }
 
 Kyc.layout = (page) => <DashboardLayout>{page}</DashboardLayout>
+
+// A8: identity profile — locks once submitted. Admin override via Filament.
+function IdentityProfileSection() {
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [countries, setCountries] = useState([])
+  const [form, setForm] = useState({
+    full_name: "",
+    date_of_birth: "",
+    country_of_birth: "",
+    country_of_residence: "",
+    full_address: "",
+    business_name: "",
+    country_of_incorporation: "",
+  })
+
+  useEffect(() => {
+    api.getCountries?.()
+      .then((res) => setCountries(res.data || []))
+      .catch(() => {})
+
+    api.getKycProfile()
+      .then((res) => {
+        const p = res.data
+        setProfile(p)
+        setForm({
+          full_name: p.full_name || "",
+          date_of_birth: p.date_of_birth || "",
+          country_of_birth: p.country_of_birth || "",
+          country_of_residence: p.country_of_residence || "",
+          full_address: p.full_address || "",
+          business_name: p.business_name || "",
+          country_of_incorporation: p.country_of_incorporation || "",
+        })
+      })
+      .catch(() => toast.error("Failed to load identity profile"))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const submit = async () => {
+    setSubmitting(true)
+    try {
+      const res = await api.submitKycProfile(form)
+      setProfile(res.data)
+      toast.success("Identity profile saved and locked. Contact support if changes are needed.")
+    } catch (e) {
+      toast.error(e?.message ?? "Failed to save identity profile")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="border-border/50">
+        <CardContent className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <SpinnerIcon size={20} className="animate-spin" /> Loading identity…
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const isLocked = !!profile?.is_locked
+  const update = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+  const updateValue = (k) => (val) => setForm({ ...form, [k]: val })
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Identity profile</CardTitle>
+          {isLocked ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-400">
+              <Lock weight="fill" size={12} /> Locked
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-400">
+              <LockOpen weight="fill" size={12} /> Editable
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {isLocked
+            ? "Your identity has been submitted and is locked. Contact support to amend any field."
+            : "Submit accurate identity information. Once saved, fields cannot be changed except by admin."}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Field label="Full legal name" value={form.full_name} onChange={update("full_name")} disabled={isLocked || submitting} />
+          <Field label="Date of birth" type="date" value={form.date_of_birth} onChange={update("date_of_birth")} disabled={isLocked || submitting} />
+          <CountryField label="Country of birth" value={form.country_of_birth} onChange={updateValue("country_of_birth")} countries={countries} disabled={isLocked || submitting} />
+          <CountryField label="Country of residence" value={form.country_of_residence} onChange={updateValue("country_of_residence")} countries={countries} disabled={isLocked || submitting} />
+        </div>
+        <Field label="Full address" value={form.full_address} onChange={update("full_address")} disabled={isLocked || submitting} placeholder="Street, City, State/Region, Postal, Country" />
+
+        <div className="border-t border-border/50 pt-4">
+          <p className="mb-3 text-sm font-medium">Business (optional)</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field label="Business name" value={form.business_name} onChange={update("business_name")} disabled={isLocked || submitting} />
+            <CountryField label="Country of incorporation" value={form.country_of_incorporation} onChange={updateValue("country_of_incorporation")} countries={countries} disabled={isLocked || submitting} />
+          </div>
+        </div>
+
+        {!isLocked && (
+          <Button className="w-full" disabled={submitting} onClick={submit}>
+            {submitting ? "Submitting…" : "Submit Identity"}
+          </Button>
+        )}
+        {isLocked && (
+          <p className="text-xs text-muted-foreground">
+            Locked at: {profile.kyc_locked_at ? new Date(profile.kyc_locked_at).toLocaleString() : "—"}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function Field({ label, value, onChange, disabled, type = "text", placeholder = "", maxLength }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <Input
+        type={type}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        maxLength={maxLength}
+      />
+    </div>
+  )
+}
+
+function CountryField({ label, value, onChange, countries, disabled }) {
+  const [search, setSearch] = useState("")
+  const [open, setOpen] = useState(false)
+  const [coords, setCoords] = useState({ left: 0, top: 0, width: 0 })
+  const triggerRef = useRef(null)
+  const popoverRef = useRef(null)
+
+  const selected = countries.find((c) => c.iso2 === value)
+  const displayText = selected ? selected.name : ""
+
+  const reposition = () => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setCoords({ left: rect.left, top: rect.bottom + 4, width: rect.width })
+  }
+
+  useEffect(() => {
+    if (!open) return
+    reposition()
+    const onScroll = () => reposition()
+    const onResize = () => reposition()
+    window.addEventListener("scroll", onScroll, true)
+    window.addEventListener("resize", onResize)
+    const handler = (e) => {
+      if (triggerRef.current?.contains(e.target)) return
+      if (popoverRef.current?.contains(e.target)) return
+      setOpen(false)
+      setSearch("")
+    }
+    document.addEventListener("mousedown", handler)
+    return () => {
+      window.removeEventListener("scroll", onScroll, true)
+      window.removeEventListener("resize", onResize)
+      document.removeEventListener("mousedown", handler)
+    }
+  }, [open])
+
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? countries.filter((c) => c.name.toLowerCase().includes(q) || c.iso2.toLowerCase().startsWith(q)).slice(0, 50)
+    : countries.slice(0, 100)
+
+  const pick = (iso2) => {
+    onChange(iso2)
+    setOpen(false)
+    setSearch("")
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => !disabled && setOpen(!open)}
+        disabled={disabled}
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span className={selected ? "" : "text-muted-foreground"}>
+          {displayText || "Select country"}
+        </span>
+        <span className="text-xs text-muted-foreground">{selected?.iso2 || "▾"}</span>
+      </button>
+
+      {open && !disabled && createPortal(
+        <div
+          ref={popoverRef}
+          style={{ position: "fixed", left: coords.left, top: coords.top, width: coords.width, zIndex: 9999 }}
+          className="max-h-72 overflow-hidden rounded-md border border-border bg-popover shadow-lg"
+        >
+          <div className="border-b border-border p-2">
+            <Input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search country…"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="max-h-56 overflow-y-auto">
+            {filtered.length === 0 && (
+              <p className="px-3 py-2 text-sm text-muted-foreground">No matches</p>
+            )}
+            {filtered.map((c) => (
+              <button
+                key={c.iso2}
+                type="button"
+                onClick={() => pick(c.iso2)}
+                className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-accent ${
+                  c.iso2 === value ? "bg-accent/50 font-medium" : ""
+                }`}
+              >
+                <span>{c.name}</span>
+                <span className="text-xs text-muted-foreground">{c.iso2}</span>
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}

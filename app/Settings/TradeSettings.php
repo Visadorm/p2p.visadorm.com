@@ -32,6 +32,13 @@ class TradeSettings extends Settings
     public bool $sell_require_stake_link;
     public bool $sell_require_stake_cash;
 
+    // A9: auto-cancel expired sell trades (backend cron).
+    public bool $sell_auto_cancel_expired_enabled;
+
+    // B1: when true, buy flow user-signs mark/confirm/cancel directly.
+    // When false, falls back to legacy operator-signed path.
+    public bool $buy_user_signed_enabled;
+
     public static function group(): string
     {
         return 'trade';

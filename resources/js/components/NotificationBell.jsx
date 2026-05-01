@@ -89,8 +89,13 @@ export default function NotificationBell() {
             notifications.map((notif) => {
               const Icon = TYPE_ICONS[notif.type] || Bell
               const tradeHash = notif.trade?.trade_hash
+              const tradeType = (notif.trade?.type || "").toLowerCase()
               const isCash = tradeHash && ["cash_meeting", "cash meeting"].includes((notif.trade?.payment_method || "").toLowerCase())
-              const tradeUrl = tradeHash ? (isCash ? `/trade/${tradeHash}/meeting` : `/trade/${tradeHash}/confirm`) : null
+              const tradeUrl = tradeHash
+                ? (tradeType === "sell"
+                    ? `/sell/trade/${tradeHash}`
+                    : (isCash ? `/trade/${tradeHash}/meeting` : `/trade/${tradeHash}/confirm`))
+                : null
               return (
                 <DropdownMenuItem
                   key={notif.id}

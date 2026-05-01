@@ -194,6 +194,69 @@ class SellTradeFlowTest extends TestCase
         $this->assertDatabaseHas('trades', ['type' => 'sell', 'status' => 'pending']);
     }
 
+    public function test_a01_store_rejects_when_seller_already_has_active_sell_trade(): void
+    {
+        $this->mockBlockchain(['openSellTradeCalldata' => '0xabcd']);
+        $this->actingAsSeller();
+
+        // First open succeeds
+        $this->postJson('/api/sell-trades', [
+            'merchant_wallet' => $this->merchant->wallet_address,
+            'amount' => 100,
+            'currency' => 'USD',
+            'payment_method_id' => $this->paymentMethod->id,
+            'fiat_rate' => 1.0,
+            'is_cash_trade' => false,
+        ])->assertCreated();
+
+        // Second open rejected
+        $this->postJson('/api/sell-trades', [
+            'merchant_wallet' => $this->merchant->wallet_address,
+            'amount' => 50,
+            'currency' => 'USD',
+            'payment_method_id' => $this->paymentMethod->id,
+            'fiat_rate' => 1.0,
+            'is_cash_trade' => false,
+        ])->assertStatus(422)
+          ->assertJsonFragment(['message' => __('trade.error.active_sell_trade_exists')]);
+
+        // Cancel/complete the first → second can open
+        Trade::query()->where('seller_wallet', strtolower($this->sellerUser->wallet_address))->update(['status' => TradeStatus::Cancelled->value]);
+
+        $this->postJson('/api/sell-trades', [
+            'merchant_wallet' => $this->merchant->wallet_address,
+            'amount' => 50,
+            'currency' => 'USD',
+            'payment_method_id' => $this->paymentMethod->id,
+            'fiat_rate' => 1.0,
+            'is_cash_trade' => false,
+        ])->assertCreated();
+    }
+
+    public function test_a01_active_endpoint_returns_active_trade(): void
+    {
+        $this->mockBlockchain(['openSellTradeCalldata' => '0xabcd']);
+        $this->actingAsSeller();
+
+        // No active → has_active false
+        $this->getJson('/api/sell-trades/active')
+            ->assertOk()
+            ->assertJsonPath('data.has_active', false);
+
+        $this->postJson('/api/sell-trades', [
+            'merchant_wallet' => $this->merchant->wallet_address,
+            'amount' => 100,
+            'currency' => 'USD',
+            'payment_method_id' => $this->paymentMethod->id,
+            'fiat_rate' => 1.0,
+        ])->assertCreated();
+
+        // Active → has_active true with hash
+        $res = $this->getJson('/api/sell-trades/active')->assertOk();
+        $res->assertJsonPath('data.has_active', true)
+            ->assertJsonStructure(['data' => ['has_active', 'trade_hash', 'status', 'amount_usdc']]);
+    }
+
     public function test_b02_store_rejects_bad_merchant_wallet(): void
     {
         $this->mockBlockchain();
@@ -483,6 +546,51 @@ class SellTradeFlowTest extends TestCase
         $this->assertDatabaseHas('trades', ['id' => $trade->id, 'dispute_tx_hash' => $hash]);
     }
 
+    public function test_a03_buyer_cancel_via_dispute_with_request_prefix_persists_reason(): void
+    {
+        Event::fake();
+        $hash = '0x' . str_repeat('a', 64);
+        $reason = 'BUYER_CANCELLATION_REQUEST: Buyer requested cancellation before payment was sent.';
+
+        $this->mockBlockchain([
+            'getTransactionReceipt' => $this->fakeReceipt($this->merchant->wallet_address),
+            'parseDisputeOpenedLog' => ['topics' => [], 'data' => '0x'],
+        ]);
+
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsMerchant();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/dispute", [
+            'dispute_tx_hash' => $hash,
+            'reason' => $reason,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('disputes', [
+            'trade_id' => $trade->id,
+            'opened_by' => strtolower($this->merchant->wallet_address),
+            'reason' => $reason,
+        ]);
+        $this->assertDatabaseHas('trades', ['id' => $trade->id, 'status' => 'disputed']);
+    }
+
+    public function test_a03_seller_cancel_blocked_after_buyer_joined(): void
+    {
+        $this->mockBlockchain([
+            'getTransactionReceipt' => $this->fakeReceipt($this->sellerMerchant->wallet_address),
+            'parseTradeCancelledLog' => ['topics' => [], 'data' => '0x'],
+        ]);
+
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsSeller();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/cancel", [
+            'cancel_tx_hash' => '0x' . str_repeat('c', 64),
+        ])->assertStatus(422);
+
+        $tradePaid = $this->makeSellTrade(TradeStatus::PaymentSent);
+        $this->postJson("/api/sell-trades/{$tradePaid->trade_hash}/cancel", [
+            'cancel_tx_hash' => '0x' . str_repeat('d', 64),
+        ])->assertStatus(422);
+    }
+
     public function test_b20_cancel_only_works_pre_join(): void
     {
         $this->mockBlockchain([
@@ -516,6 +624,266 @@ class SellTradeFlowTest extends TestCase
         $this->postJson("/api/sell-trades/{$trade->trade_hash}/cash-proof", ['proof' => $file])
             ->assertOk();
         $this->assertNotNull($trade->fresh()->cash_proof_url);
+    }
+
+    public function test_b12_confirm_release_rejects_non_seller_caller(): void
+    {
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::PaymentSent);
+
+        // Buyer (merchant in sell flow) attempting to confirm release → 403
+        $this->actingAsMerchant();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/confirm-release", [
+            'release_tx_hash' => '0x' . str_repeat('e', 64),
+        ])->assertStatus(403);
+    }
+
+    public function test_b12_cancel_rejects_non_party_caller(): void
+    {
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::Pending);
+
+        $strangerWallet = '0xddddddddddddddddddddddddddddddddddddddddd';
+        $rank = MerchantRank::where('slug', 'new-member')->first();
+        $stranger = User::create([
+            'name' => 'Stranger',
+            'email' => 'stranger-cancel@test.com',
+            'password' => Hash::make('password'),
+            'wallet_address' => substr($strangerWallet, 0, 42),
+        ]);
+        Merchant::create([
+            'wallet_address' => substr($strangerWallet, 0, 42),
+            'username' => 'stranger_cancel',
+            'is_active' => true,
+            'rank_id' => $rank->id,
+            'member_since' => now(),
+        ]);
+        Sanctum::actingAs($stranger);
+
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/cancel", [
+            'cancel_tx_hash' => '0x' . str_repeat('f', 64),
+        ])->assertStatus(403);
+    }
+
+    public function test_a04_payment_proof_upload_by_buyer_persists_path(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsMerchant();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('receipt.jpg');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/payment-proof", ['proof' => $file])
+            ->assertOk()
+            ->assertJsonPath('data.has_payment_proof', true);
+        $fresh = $trade->fresh();
+        $this->assertNotNull($fresh->payment_proof_url);
+        $this->assertNotNull($fresh->payment_proof_uploaded_at);
+    }
+
+    public function test_a04_payment_proof_rejects_seller(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsSeller();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('receipt.jpg');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/payment-proof", ['proof' => $file])
+            ->assertStatus(422);
+    }
+
+    public function test_a04_payment_proof_rejects_wrong_status(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::Pending);
+        $this->actingAsMerchant();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('receipt.jpg');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/payment-proof", ['proof' => $file])
+            ->assertStatus(422);
+    }
+
+    public function test_a04_payment_proof_download_streams_file(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsMerchant();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('receipt.jpg');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/payment-proof", ['proof' => $file])->assertOk();
+
+        $this->actingAsSeller();
+        $this->get("/api/sell-trades/{$trade->trade_hash}/payment-proof")
+            ->assertOk()
+            ->assertHeader('content-disposition');
+    }
+
+    public function test_a05_chat_buyer_can_send_text_message(): void
+    {
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsMerchant();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", [
+            'body' => 'Sending now via SEPA',
+        ])->assertStatus(201)
+          ->assertJsonPath('data.sender_role', 'buyer')
+          ->assertJsonPath('data.body', 'Sending now via SEPA');
+        $this->assertDatabaseHas('trade_messages', [
+            'trade_id' => $trade->id,
+            'sender_role' => 'buyer',
+            'body' => 'Sending now via SEPA',
+        ]);
+    }
+
+    public function test_a05_chat_seller_can_send_with_image(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsSeller();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('hint.jpg');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", [
+            'body' => 'Account ending 4321',
+            'attachment' => $file,
+        ])->assertStatus(201)
+          ->assertJsonPath('data.sender_role', 'seller')
+          ->assertJsonPath('data.has_attachment', true);
+    }
+
+    public function test_a05_chat_locked_after_completion(): void
+    {
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::Completed);
+        $this->actingAsMerchant();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", [
+            'body' => 'Late message',
+        ])->assertStatus(422)
+          ->assertJsonFragment(['message' => __('trade.error.chat_locked')]);
+    }
+
+    public function test_a07_cash_proof_download_streams_for_party(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked, ['is_cash_trade' => true]);
+        $this->actingAsMerchant();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('cash.jpg');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/cash-proof", ['proof' => $file])->assertOk();
+
+        $this->actingAsSeller();
+        $this->get("/api/sell-trades/{$trade->trade_hash}/cash-proof")
+            ->assertOk()
+            ->assertHeader('content-disposition');
+    }
+
+    public function test_a07_show_exposes_has_cash_proof_flag(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked, ['is_cash_trade' => true]);
+
+        $this->actingAsMerchant();
+        $this->getJson("/api/sell-trades/{$trade->trade_hash}")
+            ->assertJsonPath('data.has_cash_proof', false);
+
+        $file = \Illuminate\Http\UploadedFile::fake()->image('cash.jpg');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/cash-proof", ['proof' => $file])->assertOk();
+
+        $this->getJson("/api/sell-trades/{$trade->trade_hash}")
+            ->assertJsonPath('data.has_cash_proof', true);
+    }
+
+    public function test_a06_show_exposes_full_payment_method_details(): void
+    {
+        $this->mockBlockchain();
+
+        // Update payment method with bank details payload
+        $this->paymentMethod->update([
+            'provider' => 'Chase',
+            'details' => [
+                'account_name' => 'Acme Corp',
+                'account_number' => '1234567890',
+                'routing_number' => '021000021',
+            ],
+            'safety_note' => 'Reference required',
+        ]);
+
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsMerchant();
+
+        $res = $this->getJson("/api/sell-trades/{$trade->trade_hash}")->assertOk();
+        $res->assertJsonPath('data.payment_method_provider', 'Chase')
+            ->assertJsonPath('data.payment_method_details.account_number', '1234567890')
+            ->assertJsonPath('data.payment_method_details.routing_number', '021000021')
+            ->assertJsonPath('data.payment_method_safety_note', 'Reference required');
+    }
+
+    public function test_a05_chat_image_only_no_body_succeeds(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsMerchant();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('shot.png');
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", [
+            'attachment' => $file,
+        ])->assertStatus(201)
+          ->assertJsonPath('data.has_attachment', true)
+          ->assertJsonPath('data.body', null);
+    }
+
+    public function test_a05_chat_rejects_empty(): void
+    {
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+        $this->actingAsMerchant();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", [])
+            ->assertStatus(422);
+    }
+
+    public function test_a05_chat_rejects_third_party(): void
+    {
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+
+        $strangerWallet = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+        $rank = MerchantRank::where('slug', 'new-member')->first();
+        $strangerUser = User::create([
+            'name' => 'Stranger',
+            'email' => 'stranger@test.com',
+            'password' => Hash::make('password'),
+            'wallet_address' => $strangerWallet,
+        ]);
+        Merchant::create([
+            'wallet_address' => $strangerWallet,
+            'username' => 'stranger',
+            'is_active' => true,
+            'rank_id' => $rank->id,
+            'member_since' => now(),
+        ]);
+        Sanctum::actingAs($strangerUser);
+
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", [
+            'body' => 'I am not a party',
+        ])->assertStatus(422);
+    }
+
+    public function test_a05_chat_list_returns_messages_in_order(): void
+    {
+        $this->mockBlockchain();
+        $trade = $this->makeSellTrade(TradeStatus::EscrowLocked);
+
+        $this->actingAsMerchant();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", ['body' => 'first'])->assertStatus(201);
+
+        $this->actingAsSeller();
+        $this->postJson("/api/sell-trades/{$trade->trade_hash}/messages", ['body' => 'second'])->assertStatus(201);
+
+        $this->actingAsMerchant();
+        $res = $this->getJson("/api/sell-trades/{$trade->trade_hash}/messages")->assertOk();
+        $res->assertJsonCount(2, 'data.messages')
+            ->assertJsonPath('data.messages.0.body', 'first')
+            ->assertJsonPath('data.messages.1.body', 'second')
+            ->assertJsonPath('data.locked', false);
     }
 
     public function test_b22_verify_payment_requires_seller_caller(): void

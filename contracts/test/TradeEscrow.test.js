@@ -530,6 +530,82 @@ describe("TradeEscrowContract", function () {
     });
   });
 
+  // ─── B1: User-signed buy flow wrappers ───
+
+  describe("B1: User-signed buy flow", function () {
+    it("markPaymentSentByBuyer succeeds when buyer signs", async function () {
+      const { escrow, buyer, id } = await loadFixture(tradeInitiatedFixture);
+
+      await expect(escrow.connect(buyer).markPaymentSentByBuyer(id))
+        .to.emit(escrow, "PaymentMarkedSent")
+        .withArgs(id);
+
+      const trade = await escrow.trades(id);
+      expect(trade.status).to.equal(2); // PaymentSent
+    });
+
+    it("markPaymentSentByBuyer reverts when non-buyer calls", async function () {
+      const { escrow, merchant, outsider, id } = await loadFixture(tradeInitiatedFixture);
+
+      await expect(escrow.connect(merchant).markPaymentSentByBuyer(id))
+        .to.be.revertedWith("Only buyer can mark paid");
+      await expect(escrow.connect(outsider).markPaymentSentByBuyer(id))
+        .to.be.revertedWith("Only buyer can mark paid");
+    });
+
+    it("confirmPaymentByMerchant succeeds when merchant signs", async function () {
+      const { escrow, merchant, buyer, id, tradeAmount, usdc } = await loadFixture(tradeInitiatedFixture);
+      await escrow.connect(buyer).markPaymentSentByBuyer(id);
+
+      const buyerBefore = await usdc.balanceOf(buyer.address);
+      const STAKE = ethers.parseUnits("5", 6);
+
+      await expect(escrow.connect(merchant).confirmPaymentByMerchant(id))
+        .to.emit(escrow, "TradeCompleted");
+
+      const trade = await escrow.trades(id);
+      expect(trade.status).to.equal(3); // Completed
+      // Buyer receives trade amount + stake refund (public trade pays stake at init).
+      expect(await usdc.balanceOf(buyer.address)).to.equal(buyerBefore + tradeAmount + STAKE);
+    });
+
+    it("confirmPaymentByMerchant reverts when non-merchant calls", async function () {
+      const { escrow, buyer, outsider, id } = await loadFixture(tradeInitiatedFixture);
+      await escrow.connect(buyer).markPaymentSentByBuyer(id);
+
+      await expect(escrow.connect(buyer).confirmPaymentByMerchant(id))
+        .to.be.revertedWith("Only merchant can confirm");
+      await expect(escrow.connect(outsider).confirmPaymentByMerchant(id))
+        .to.be.revertedWith("Only merchant can confirm");
+    });
+
+    it("cancelTradeByMerchant succeeds when merchant signs and trade is EscrowLocked", async function () {
+      const { escrow, merchant, id } = await loadFixture(tradeInitiatedFixture);
+
+      await expect(escrow.connect(merchant).cancelTradeByMerchant(id))
+        .to.emit(escrow, "TradeCancelled")
+        .withArgs(id);
+
+      const trade = await escrow.trades(id);
+      expect(trade.status).to.equal(5); // Cancelled
+    });
+
+    it("cancelTradeByMerchant reverts when buyer calls", async function () {
+      const { escrow, buyer, id } = await loadFixture(tradeInitiatedFixture);
+
+      await expect(escrow.connect(buyer).cancelTradeByMerchant(id))
+        .to.be.revertedWith("Only merchant can cancel buy trade");
+    });
+
+    it("cancelTradeByMerchant reverts after PaymentSent", async function () {
+      const { escrow, buyer, merchant, id } = await loadFixture(tradeInitiatedFixture);
+      await escrow.connect(buyer).markPaymentSentByBuyer(id);
+
+      await expect(escrow.connect(merchant).cancelTradeByMerchant(id))
+        .to.be.revertedWith("Can only cancel before payment is sent");
+    });
+  });
+
   // ─── Disputes ───
 
   describe("Disputes", function () {

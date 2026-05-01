@@ -242,18 +242,16 @@ class TradeFlowE2ETest extends TestCase
         $confirmResponse = $this->postJson('/api/merchant/trades/' . $tradeHash . '/confirm');
 
         $confirmResponse->assertOk()
-            ->assertJsonPath('data.status', TradeStatus::Completed->value);
+            ->assertJsonPath('data.status', TradeStatus::Confirming->value);
 
         Queue::assertPushed(\App\Jobs\ProcessTradeConfirmation::class);
 
-        // ── 6. Assert final state in database ─────────────────────────────────
         $this->assertDatabaseHas('trades', [
             'trade_hash' => $tradeHash,
-            'status' => TradeStatus::Completed->value,
+            'status' => TradeStatus::Confirming->value,
         ]);
 
-        $completedTrade = Trade::where('trade_hash', $tradeHash)->firstOrFail();
-        $this->assertSame(TradeStatus::Completed, $completedTrade->status);
-        $this->assertNotNull($completedTrade->completed_at);
+        $intermediateTrade = Trade::where('trade_hash', $tradeHash)->firstOrFail();
+        $this->assertSame(TradeStatus::Confirming, $intermediateTrade->status);
     }
 }

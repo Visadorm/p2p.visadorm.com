@@ -236,7 +236,7 @@ class BlockchainService
      */
     public function depositEscrow(string $merchantAddress, string $amountUsdc): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'depositEscrow', [$merchantAddress, $amountUsdc]);
 
         return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
@@ -248,7 +248,7 @@ class BlockchainService
      */
     public function withdrawEscrow(string $merchantAddress, string $amountUsdc): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'withdrawEscrow', [$merchantAddress, $amountUsdc]);
 
         return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
@@ -260,7 +260,7 @@ class BlockchainService
      */
     public function initiateTrade(string $tradeHash, string $merchant, string $buyer, string $amount, bool $isPrivate, int $expiresAt): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'initiateTrade', [
             $bytes32Hash,
@@ -280,11 +280,32 @@ class BlockchainService
      */
     public function markPaymentSent(string $tradeHash): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'markPaymentSent', [$bytes32Hash]);
 
         return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
+    }
+
+    // ─── B1: Buy-flow user-signed calldata builders ───
+    // Backend returns calldata; user wallet signs + broadcasts. Mirrors sell flow.
+
+    public function markPaymentSentByBuyerCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'markPaymentSentByBuyer', [$bytes32Hash]);
+    }
+
+    public function confirmPaymentByMerchantCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'confirmPaymentByMerchant', [$bytes32Hash]);
+    }
+
+    public function cancelTradeByMerchantCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'cancelTradeByMerchant', [$bytes32Hash]);
     }
 
     /**
@@ -293,7 +314,7 @@ class BlockchainService
      */
     public function confirmPayment(string $tradeHash): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'confirmPayment', [$bytes32Hash]);
 
@@ -306,7 +327,7 @@ class BlockchainService
      */
     public function cancelTrade(string $tradeHash): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'cancelTrade', [$bytes32Hash]);
 
@@ -319,7 +340,7 @@ class BlockchainService
      */
     public function openDispute(string $tradeHash, string $openedBy): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'openDispute', [$bytes32Hash, $openedBy]);
 
@@ -333,7 +354,7 @@ class BlockchainService
      */
     public function resolveDispute(string $tradeHash, string $winner): string
     {
-        $signerKey = config('blockchain.admin_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->adminKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'resolveDispute', [$bytes32Hash, $winner]);
 
@@ -346,7 +367,7 @@ class BlockchainService
      */
     public function mintTradeNFT(string $tradeHash, string $meetingLocation): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'mintTradeNFT', [$bytes32Hash, $meetingLocation]);
 
@@ -359,7 +380,7 @@ class BlockchainService
      */
     public function burnTradeNFT(string $tradeHash): string
     {
-        $signerKey = config('blockchain.operator_private_key');
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
         $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
         $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'burnTradeNFT', [$bytes32Hash]);
 
@@ -409,11 +430,42 @@ class BlockchainService
         return $this->encodeFunctionCall($this->tradeEscrowAbi, 'cancelSellTradePending', [$bytes32Hash]);
     }
 
+    public function cancelSellTradeByBuyerCalldata(string $tradeHash): string
+    {
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        return $this->encodeFunctionCall($this->tradeEscrowAbi, 'cancelSellTradeByBuyer', [$bytes32Hash]);
+    }
+
+    /**
+     * A9: backend-broadcast cancellation for expired sell trades.
+     * The contract permits anyone to call cancelExpiredSellTrade after expiry;
+     * the operator key here just pays gas and triggers the refund.
+     */
+    public function cancelExpiredSellTrade(string $tradeHash): string
+    {
+        $signerKey = app(\App\Services\KeyVault\KeyVault::class)->operatorKey();
+        $bytes32Hash = '0x' . $this->tradeHashToBytes32($tradeHash);
+        $data = $this->encodeFunctionCall($this->tradeEscrowAbi, 'cancelExpiredSellTrade', [$bytes32Hash]);
+
+        return $this->sendTransaction($this->tradeEscrowAddress, $data, $signerKey);
+    }
+
     // ─── Sell Flow — receipt log parsers ─────────────────────────────────
 
-    public function parseSellTradeOpenedLog(array $receipt, string $expectedTradeHash): ?array
+    /**
+     * B2: optionally enforce that the indexed `seller` topic matches the
+     * expected wallet, defending against front-running where someone tries
+     * to record another wallet's tx hash for a trade.
+     */
+    public function parseSellTradeOpenedLog(array $receipt, string $expectedTradeHash, ?string $expectedSeller = null): ?array
     {
-        return $this->matchEscrowEvent($receipt, 'SellTradeOpened(bytes32,address,address,uint256)', $expectedTradeHash);
+        $log = $this->matchEscrowEvent($receipt, 'SellTradeOpened(bytes32,address,address,uint256)', $expectedTradeHash);
+        if ($log === null || $expectedSeller === null) return $log;
+
+        // topics[2] = indexed seller, padded to 32 bytes
+        $sellerTopic = strtolower($log['topics'][2] ?? '');
+        $expected = strtolower('0x' . str_pad(substr($expectedSeller, 2), 64, '0', STR_PAD_LEFT));
+        return $sellerTopic === $expected ? $log : null;
     }
 
     public function parseSellTradeJoinedLog(array $receipt, string $expectedTradeHash): ?array

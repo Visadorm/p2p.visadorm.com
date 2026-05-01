@@ -101,6 +101,7 @@ class HandleInertiaRequests extends Middleware
                 'sell_require_stake_public' => app(\App\Settings\TradeSettings::class)->sell_require_stake_public,
                 'sell_require_stake_link'   => app(\App\Settings\TradeSettings::class)->sell_require_stake_link,
                 'sell_require_stake_cash'   => app(\App\Settings\TradeSettings::class)->sell_require_stake_cash,
+                'buy_user_signed_enabled'   => app(\App\Settings\TradeSettings::class)->buy_user_signed_enabled,
             ], [
                 'sell_enabled' => true,
                 'sell_cash_trade_enabled' => true,
@@ -109,6 +110,7 @@ class HandleInertiaRequests extends Middleware
                 'sell_require_stake_public' => true,
                 'sell_require_stake_link' => false,
                 'sell_require_stake_cash' => true,
+                'buy_user_signed_enabled' => false,
             ])),
         ];
     }

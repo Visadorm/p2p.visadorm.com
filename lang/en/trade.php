@@ -21,7 +21,9 @@ return [
         'escrow_locked' => 'Escrow Locked',
         'payment_sent' => 'Payment Sent',
         'payment_confirmed' => 'Payment Confirmed',
+        'confirming' => 'Confirming On-Chain',
         'completed' => 'Completed',
+        'cancelling' => 'Cancelling On-Chain',
         'cancelled' => 'Cancelled',
         'disputed' => 'Disputed',
         'expired' => 'Expired',
@@ -99,6 +101,11 @@ return [
     'resolve_for_buyer' => 'Resolve for Buyer',
     'resolve_for_merchant' => 'Resolve for Merchant',
 
+    // A3 Path C — dispute classification (fast-track buyer cancellation requests)
+    'dispute_kind' => 'Kind',
+    'dispute_kind_cancel_request' => 'Cancel Request',
+    'dispute_kind_dispute' => 'Dispute',
+
     // Errors
     'error' => [
         'insufficient_escrow' => 'Insufficient USDC balance in escrow contract.',
@@ -108,8 +115,58 @@ return [
         'trade_expired' => 'This trade has expired and can no longer be confirmed.',
         'cannot_self_trade' => 'You cannot trade with your own merchant account.',
         'active_trade_exists' => 'You already have an active trade with this merchant. Please complete or cancel it first.',
+        'active_sell_trade_exists' => 'You already have an active sell trade. Please complete, cancel, or resolve it before opening another.',
+        'chat_locked' => 'Trade chat is locked because the trade has been completed, cancelled, or resolved.',
+        'chat_empty' => 'Type a message or attach a file before sending.',
         'exchange_rate_unavailable' => 'Exchange rate is currently unavailable. Please try again later.',
         'merchant_insufficient_escrow' => 'This merchant does not have enough USDC in escrow to cover this trade. Try a smaller amount or contact the merchant.',
+    ],
+
+    // A2: Sell flow UI copy (mirrors resources/js/pages/Sell/TradeRoom.jsx).
+    // JSX is the live source until i18n bootstrapped on the frontend.
+    'sell' => [
+        'badge' => [
+            'pending' => 'Waiting for Buyer',
+            'escrow_locked' => 'Buyer Paying',
+            'payment_sent' => 'Verify Payment',
+            'completed' => 'Completed',
+            'disputed' => 'Disputed',
+            'cancelled' => 'Cancelled',
+            'expired' => 'Expired',
+            'resolved' => 'Resolved',
+        ],
+        'seller' => [
+            'pending' => 'Waiting for buyer to join. Buyer has been notified.',
+            'cancel_btn' => 'Cancel trade (full refund)',
+            'escrow_locked' => 'Waiting for buyer payment of :amount :currency via :method.',
+            'payment_sent_title' => 'Buyer marked as paid',
+            'payment_sent_body' => 'Verify the fiat landed in your account before releasing USDC. The wallet signature is your final confirmation.',
+            'release_btn' => 'Confirm & Release USDC (:amount)',
+            'release_warning' => 'You sign + pay gas. Once released, the trade is final and irreversible.',
+            'completed' => 'Trade complete. USDC sent to buyer.',
+            'cancelled' => 'Trade closed. Funds returned to your wallet.',
+            'disputed_title' => 'Dispute under review',
+            'disputed_body' => 'Mediator Council is reviewing this dispute. Funds remain locked in escrow. You will be notified when the multisig resolves it.',
+            'resolved' => 'Dispute resolved by Mediator Council. Funds distributed on-chain. View Resolve tx for details.',
+        ],
+        'buyer' => [
+            'join_btn' => 'Join Trade',
+            'pay_title' => 'Send :amount :currency to seller',
+            'pay_body' => 'Via your :method account. Use trade hash as reference.',
+            'paid_btn' => 'I Paid',
+            'cancel_btn' => 'Cancel trade (request mediator review)',
+            'cancel_confirm' => 'Cancel this trade? This sends a cancellation request to the Mediator Council. If approved, the seller is refunded in full. Use only if you cannot complete the fiat payment.',
+            'cancel_success' => 'Cancellation request sent to Mediator Council',
+            'payment_sent' => 'Waiting for seller to verify and release. They have final say.',
+            // A4 — payment proof upload
+            'proof_upload_title' => 'Upload payment proof',
+            'proof_reupload_title' => 'Re-upload payment proof',
+            'proof_help' => 'Screenshot of bank transfer, receipt, or confirmation. Image or PDF, max 5MB. Helps the seller verify your payment.',
+            'proof_upload_btn' => 'Upload proof',
+            'proof_uploaded_label' => 'Already uploaded',
+            'proof_seller_view_title' => 'Buyer uploaded payment proof',
+            'proof_open_btn' => 'Open / download proof',
+        ],
     ],
 
     // Sections

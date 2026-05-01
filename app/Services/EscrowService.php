@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Enums\TradeStatus;
+use App\Enums\TradeType;
 use App\Models\Merchant;
 use App\Models\Trade;
+use Illuminate\Support\Facades\Log;
 
 class EscrowService
 {
@@ -55,21 +57,95 @@ class EscrowService
     }
 
     /**
-     * Get total USDC locked in active trades for a merchant.
+     * A10: only BUY trades lock the merchant's deposited escrow. Sell trades
+     * use the seller's wallet USDC (TradeEscrow contract holds it from the
+     * seller side, not from merchant escrow). Summing both was the source of
+     * the "$980 instead of $1000" bug — a separate sell-flow dispute was
+     * being subtracted from the merchant's available balance.
      */
     public function getLockedInTrades(Merchant $merchant): float
     {
         return (float) Trade::where('merchant_id', $merchant->id)
+            ->where('type', TradeType::Buy)
             ->whereIn('status', self::ACTIVE_STATUSES)
             ->sum('amount_usdc');
     }
 
     /**
      * Check whether a merchant can initiate a trade for the given amount.
+     *
+     * B6: prefer on-chain authoritative balance and only fall back to DB
+     * derivation when the RPC is unreachable. Both must clear the amount.
      */
     public function canInitiateTrade(Merchant $merchant, float $amount): bool
     {
-        return $this->getMerchantAvailableBalance($merchant) >= $amount;
+        $dbOk = $this->getMerchantAvailableBalance($merchant) >= $amount;
+
+        try {
+            if (! empty($merchant->wallet_address)) {
+                $rawAvailable = $this->blockchainService->getAvailableBalance($merchant->wallet_address);
+                $chainAvailable = (float) $this->blockchainService->usdcToHuman($this->hexToDecimal($rawAvailable));
+
+                // Log divergence proactively so admins notice mismatch.
+                $dbAvailable = $this->getMerchantAvailableBalance($merchant);
+                if (abs($dbAvailable - $chainAvailable) > 0.01) {
+                    Log::warning('canInitiateTrade balance divergence', [
+                        'merchant_id' => $merchant->id,
+                        'db' => $dbAvailable,
+                        'chain' => $chainAvailable,
+                        'requested' => $amount,
+                    ]);
+                }
+
+                return $chainAvailable >= $amount && $dbOk;
+            }
+        } catch (\Throwable) {
+            // RPC unreachable — fall back to DB-only check.
+        }
+
+        return $dbOk;
+    }
+
+    /**
+     * A10: reconcile DB-derived available balance vs on-chain authoritative.
+     * Returns ['db' => float, 'chain' => float, 'divergence' => float, 'ok' => bool].
+     * Logs a warning when divergence > $tolerance USDC.
+     */
+    public function reconcileBalance(Merchant $merchant, float $tolerance = 0.01): array
+    {
+        $dbAvailable = $this->getMerchantAvailableBalance($merchant);
+
+        $chainAvailable = $dbAvailable; // fallback if RPC fails
+        try {
+            if (! empty($merchant->wallet_address)) {
+                $rawAvailable = $this->blockchainService->getAvailableBalance($merchant->wallet_address);
+                $decimal = $this->hexToDecimal($rawAvailable);
+                $chainAvailable = (float) $this->blockchainService->usdcToHuman($decimal);
+            }
+        } catch (\Throwable) {
+            // RPC unavailable — return DB-only assessment with ok=true (no divergence detectable).
+            return ['db' => $dbAvailable, 'chain' => null, 'divergence' => null, 'ok' => true];
+        }
+
+        $divergence = abs($dbAvailable - $chainAvailable);
+        $ok = $divergence <= $tolerance;
+
+        if (! $ok) {
+            Log::warning('Escrow balance divergence detected', [
+                'merchant_id' => $merchant->id,
+                'wallet' => $merchant->wallet_address,
+                'db_available' => $dbAvailable,
+                'chain_available' => $chainAvailable,
+                'divergence_usdc' => $divergence,
+            ]);
+        }
+
+        return [
+            'db' => $dbAvailable,
+            'chain' => $chainAvailable,
+            'divergence' => $divergence,
+            'ok' => $ok,
+        ];
     }
 
     /**

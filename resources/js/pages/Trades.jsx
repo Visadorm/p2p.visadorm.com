@@ -239,11 +239,16 @@ export default function Trades() {
                 {trades.map((trade) => {
                   const isBuyer = trade.buyer_wallet?.toLowerCase() === merchant?.wallet_address?.toLowerCase()
                   const isMerchant = trade.merchant_id === merchant?.id
-                  const role = isMerchant ? "Seller" : "Buyer"
+                  const isSell = (trade.type || "").toLowerCase() === "sell"
+                  const role = isSell
+                    ? (isMerchant ? "Buyer" : "Seller")
+                    : (isMerchant ? "Seller" : "Buyer")
                   const counterparty = isMerchant ? trade.buyer_wallet : (trade.merchant?.username || trade.merchant?.wallet_address || "—")
                   const isCashMeeting = ["cash_meeting", "cash meeting"].includes((trade.payment_method || "").toLowerCase())
                   const buyerPage = isCashMeeting ? "meeting" : "confirm"
-                  const viewUrl = isMerchant ? `/trade/${trade.trade_hash}/release` : `/trade/${trade.trade_hash}/${buyerPage}`
+                  const viewUrl = isSell
+                    ? `/sell/trade/${trade.trade_hash}`
+                    : (isMerchant ? `/trade/${trade.trade_hash}/release` : `/trade/${trade.trade_hash}/${buyerPage}`)
                   return (
                   <TableRow key={trade.id || trade.trade_hash} className="border-b border-border/30 transition-colors hover:bg-muted/20">
                     <TableCell className="font-mono text-sm font-semibold">{truncateAddress(trade.trade_hash)}</TableCell>

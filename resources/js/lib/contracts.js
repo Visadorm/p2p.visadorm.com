@@ -47,12 +47,22 @@ export const ESCROW_SELL_ABI = [
   "function releaseSellEscrow(bytes32 tradeId)",
   "function openSellDispute(bytes32 tradeId)",
   "function cancelSellTradePending(bytes32 tradeId)",
+  "function cancelSellTradeByBuyer(bytes32 tradeId)",
   "function cancelExpiredSellTrade(bytes32 tradeId)",
   "event SellTradeOpened(bytes32 indexed tradeId, address indexed seller, address indexed merchant, uint256 amount)",
   "event SellTradeJoined(bytes32 indexed tradeId, address indexed merchant)",
   "event SellPaymentMarked(bytes32 indexed tradeId)",
   "event SellEscrowReleased(bytes32 indexed tradeId, uint256 fee)",
   "event DisputeOpened(bytes32 indexed tradeId, address indexed openedBy)",
+  "event TradeCancelled(bytes32 indexed tradeId)",
+]
+
+export const ESCROW_BUY_USER_SIGNED_ABI = [
+  "function markPaymentSentByBuyer(bytes32 tradeId)",
+  "function confirmPaymentByMerchant(bytes32 tradeId)",
+  "function cancelTradeByMerchant(bytes32 tradeId)",
+  "event PaymentMarkedSent(bytes32 indexed tradeId)",
+  "event TradeCompleted(bytes32 indexed tradeId, uint256 fee)",
   "event TradeCancelled(bytes32 indexed tradeId)",
 ]
 

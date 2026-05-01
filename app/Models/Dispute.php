@@ -17,6 +17,7 @@ class Dispute extends Model
         'evidence',
         'status',
         'resolution_tx_hash',
+        'open_tx_hash',
         'resolved_by',
         'resolution_notes',
     ];

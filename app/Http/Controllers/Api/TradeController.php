@@ -527,12 +527,12 @@ class TradeController extends Controller
             ], 403);
         }
 
-        $isCashMeeting = in_array(strtolower($trade->payment_method), ['cash_meeting', 'cash meeting']);
-        $allowedStatuses = $isCashMeeting
-            ? [TradeStatus::Pending, TradeStatus::EscrowLocked, TradeStatus::PaymentSent]
-            : [TradeStatus::PaymentSent];
-
-        if (! in_array($trade->status, $allowedStatuses)) {
+        // B9: cash-meeting trades MUST still require explicit buyer mark-paid
+        // before merchant confirmation, just like online trades. Previously
+        // the cash branch allowed Pending + EscrowLocked, opening a path
+        // where merchant + operator collusion could release escrow without
+        // any buyer-side action. Status guard is now uniform.
+        if ($trade->status !== TradeStatus::PaymentSent) {
             return response()->json([
                 'message' => __('p2p.trade_invalid_status'),
             ], 422);
@@ -546,6 +546,92 @@ class TradeController extends Controller
         return response()->json([
             'data' => $trade->fresh(),
             'message' => __('p2p.trade_confirmed'),
+        ]);
+    }
+
+    // ─── B1: User-signed buy flow endpoints ───
+    //
+    // Two-step pattern (mirrors sell flow):
+    //   - tx_hash absent → returns calldata for the user wallet to broadcast
+    //   - tx_hash present → records the broadcast tx + advances DB state
+
+    public function userSignedMarkPaid(Request $request, string $tradeHash): JsonResponse
+    {
+        $trade = Trade::where('trade_hash', $tradeHash)->first();
+        if (! $trade) return response()->json(['message' => __('p2p.trade_not_found')], 404);
+
+        if (strtolower($trade->buyer_wallet) !== strtolower($request->user()->wallet_address)) {
+            return response()->json(['message' => __('p2p.trade_not_authorized')], 403);
+        }
+
+        $txHash = $request->input('tx_hash');
+        if ($txHash === null) {
+            if (! in_array($trade->status, [TradeStatus::EscrowLocked])) {
+                return response()->json(['message' => __('p2p.trade_invalid_status')], 422);
+            }
+            return response()->json(['data' => $this->tradeService->userSignedMarkPaidPayload($trade)]);
+        }
+
+        $request->validate(['tx_hash' => ['required', 'regex:/^0x[a-fA-F0-9]{64}$/']]);
+        $this->tradeService->recordUserSignedMarkPaid($trade, $txHash);
+
+        return response()->json([
+            'data' => $trade->fresh(),
+            'message' => __('p2p.trade_marked_paid'),
+        ]);
+    }
+
+    public function userSignedConfirm(Request $request, string $tradeHash): JsonResponse
+    {
+        $trade = Trade::where('trade_hash', $tradeHash)->with('merchant')->first();
+        if (! $trade) return response()->json(['message' => __('p2p.trade_not_found')], 404);
+
+        $merchant = $request->merchant;
+        if ($trade->merchant_id !== $merchant->id) {
+            return response()->json(['message' => __('p2p.trade_not_authorized')], 403);
+        }
+
+        $txHash = $request->input('tx_hash');
+        if ($txHash === null) {
+            if ($trade->status !== TradeStatus::PaymentSent) {
+                return response()->json(['message' => __('p2p.trade_invalid_status')], 422);
+            }
+            return response()->json(['data' => $this->tradeService->userSignedConfirmPayload($trade)]);
+        }
+
+        $request->validate(['tx_hash' => ['required', 'regex:/^0x[a-fA-F0-9]{64}$/']]);
+        $this->tradeService->recordUserSignedConfirm($trade, $txHash);
+
+        return response()->json([
+            'data' => $trade->fresh(),
+            'message' => __('p2p.trade_confirmed'),
+        ]);
+    }
+
+    public function userSignedCancel(Request $request, string $tradeHash): JsonResponse
+    {
+        $trade = Trade::where('trade_hash', $tradeHash)->with('merchant')->first();
+        if (! $trade) return response()->json(['message' => __('p2p.trade_not_found')], 404);
+
+        $merchant = $request->merchant;
+        if ($trade->merchant_id !== $merchant->id) {
+            return response()->json(['message' => __('p2p.trade_not_authorized')], 403);
+        }
+
+        $txHash = $request->input('tx_hash');
+        if ($txHash === null) {
+            if ($trade->status !== TradeStatus::EscrowLocked) {
+                return response()->json(['message' => __('p2p.trade_invalid_status')], 422);
+            }
+            return response()->json(['data' => $this->tradeService->userSignedCancelPayload($trade)]);
+        }
+
+        $request->validate(['tx_hash' => ['required', 'regex:/^0x[a-fA-F0-9]{64}$/']]);
+        $this->tradeService->recordUserSignedCancel($trade, $txHash);
+
+        return response()->json([
+            'data' => $trade->fresh(),
+            'message' => __('p2p.trade_cancelled'),
         ]);
     }
 }

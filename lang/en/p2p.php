@@ -171,6 +171,8 @@ return [
     'kyc_uploaded' => 'KYC document uploaded successfully.',
     'kyc_deleted' => 'KYC document deleted successfully.',
     'kyc_not_pending' => 'Only pending documents can be deleted.',
+    'kyc_locked' => 'Your KYC is locked. Contact support to amend it.',
+    'kyc_profile_locked' => 'KYC profile saved and locked. Contact support if you need to make changes.',
 
     // API Disputes
     'dispute_created' => 'Dispute opened successfully.',
@@ -234,11 +236,12 @@ return [
 
     // Sell flow
     'sell_trade_payload_built'        => 'Sell trade payload built. Sign in your wallet to fund.',
-    'sell_trade_funded'               => 'Sell trade funded. Awaiting merchant to accept.',
+    'sell_trade_funded'               => 'Sell trade funded. Waiting for buyer to join.',
     'sell_trade_loaded'               => 'Sell trade loaded.',
-    'sell_trade_joined'               => 'Merchant joined the trade. Awaiting fiat payment.',
-    'sell_trade_payment_marked'       => 'Merchant marked fiat sent. Verify receipt before releasing.',
-    'sell_trade_released'             => 'USDC released to merchant. Trade complete.',
+    'sell_trade_joined'               => 'Buyer joined the trade. Waiting for fiat payment.',
+    'sell_trade_payment_marked'       => 'Buyer marked fiat sent. Verify receipt before releasing.',
+    'sell_trade_payment_proof_uploaded' => 'Payment proof uploaded. Seller has been notified.',
+    'sell_trade_released'             => 'USDC released to buyer. Trade complete.',
     'sell_trade_dispute_opened'       => 'Dispute opened. Mediator council will review.',
     'sell_trade_cancelled'            => 'Sell trade cancelled. Funds returned.',
     'sell_trade_not_found'            => 'Sell trade not found.',

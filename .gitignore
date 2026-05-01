@@ -1,0 +1,65 @@
+.exclude
+
+# dependencies
+.env
+.env.local
+.env.*.local
+node_modules/
+vendor/
+
+# laravel
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+storage/framework/testing/
+storage/app/private/
+storage/app/public/avatars/
+storage/app/public/branding/
+storage/app/public/email-branding/
+storage/*.key
+bootstrap/cache/*.php
+bootstrap/cache/!.gitkeep
+public/storage
+public/hot
+
+# build (do NOT ignore public/build — server has no npm, so we ship vite output)
+.next/
+.nuxt/
+dist/
+out/
+.vite/
+
+# database
+database/database.sqlite
+
+# logs
+*.log
+
+# os
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# coverage
+coverage/
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# secrets
+*.pem
+*.key
+*.cert
+
+# contracts dev
+contracts/.env
+contracts/node_modules/
+contracts/artifacts/
+contracts/cache/
+contracts/coverage/

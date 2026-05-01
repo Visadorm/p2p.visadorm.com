@@ -16,6 +16,12 @@ return [
     'toggle_active' => 'Toggle Active',
     'assign_legendary' => 'Assign Legendary',
     'remove_legendary' => 'Remove Legendary',
+    'unlock_kyc' => 'Unlock KYC',
+    'kyc_unlocked_title' => 'KYC Unlocked',
+    'kyc_unlocked_body' => 'Merchant can now amend their KYC profile. Re-submission will lock again.',
+    'section_identity_profile' => 'KYC Identity Profile',
+    'kyc_profile_submitted' => 'KYC Profile Submitted',
+    'kyc_profile_pending_filter' => 'Has submitted KYC profile',
 
     'email' => 'Email',
     'is_legendary' => 'Legendary',

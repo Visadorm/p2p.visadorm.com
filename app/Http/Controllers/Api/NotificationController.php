@@ -21,7 +21,7 @@ class NotificationController extends Controller
         ]);
 
         $notifications = $merchant->notifications()
-            ->with('trade:id,trade_hash,payment_method')
+            ->with('trade:id,trade_hash,payment_method,type')
             ->latest('created_at')
             ->paginate($request->integer('per_page', 20));
 

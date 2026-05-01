@@ -140,6 +140,22 @@ else
     MIGRATE_STATUS="Nothing to migrate"
 fi
 
+# Idempotent seeders — only seed if data missing.
+SEED_OUTPUT=$(php artisan db:seed --class=MerchantRankSeeder --force --no-interaction 2>&1 || true)
+echo "$SEED_OUTPUT"
+
+# Ensure storage symlink exists for public access to user uploads
+# (avatars, branding, email-branding, plus any new public-disk content).
+# Idempotent: --force overwrites without prompting if it already exists.
+php artisan storage:link --force 2>&1 || true
+
+# Seed nnjeim/world country data if empty (KYC country picker depends on it).
+COUNTRY_COUNT=$(php artisan tinker --execute='echo \Nnjeim\World\Models\Country::count();' 2>/dev/null | tail -1 | tr -d '[:space:]')
+if [ "$COUNTRY_COUNT" = "0" ]; then
+    echo "Country table empty — seeding world data..."
+    php -d memory_limit=512M artisan world:install 2>&1 || true
+fi
+
 php artisan optimize:clear
 php artisan optimize
 php artisan filament:optimize

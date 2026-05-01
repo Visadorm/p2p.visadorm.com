@@ -28,8 +28,10 @@ Route::prefix('auth')->middleware('throttle:10,1')->group(function () {
     Route::post('verify', [AuthController::class, 'verify'])->name('api.auth.verify');
 });
 
-// Public merchant profile
+// Public merchant profile. Constrain `username` so it cannot swallow
+// authenticated subpaths like /merchant/kyc/profile, /merchant/dashboard, etc.
 Route::get('merchant/{username}/profile', [MerchantController::class, 'profile'])
+    ->where('username', '^(?!kyc|dashboard|trades|escrow|profile|avatar|payment-methods|currencies|trading-links).+')
     ->name('api.merchant.profile');
 
 // Public merchant listing (for landing page carousel + buy/sell listing)
@@ -41,8 +43,10 @@ Route::get('merchants', [MerchantController::class, 'listing'])
 Route::get('exchange-rates', [ExchangeRateController::class, 'index'])
     ->name('api.exchange-rates');
 
-// Public country list (cached 24h)
-Route::get('countries', function () {
+// Public country list (cached 24h). Path renamed to avoid clash with the
+// nnjeim/world package's wildcard {prefix?}/countries route which can shadow
+// us when its routes are registered before ours.
+Route::get('p2p-countries', function () {
     $countries = \Illuminate\Support\Facades\Cache::remember('countries_list', 86400, function () {
         return \Nnjeim\World\Models\Country::query()
             ->select(['iso2', 'name', 'phone_code'])
@@ -113,6 +117,12 @@ Route::middleware(['auth:sanctum', EnsureWalletAuthenticated::class])->group(fun
         Route::post('trade/{tradeHash}/cancel', [TradeController::class, 'cancel'])->name('api.trade.cancel');
     });
     Route::get('trade/{tradeHash}/status', [TradeController::class, 'status'])->name('api.trade.status');
+
+    // B1: user-signed buy flow (two-step: GET-style payload, POST-style record).
+    // Single endpoint with optional tx_hash body field disambiguates request.
+    Route::post('trade/{tradeHash}/user-signed/mark-paid', [TradeController::class, 'userSignedMarkPaid'])->name('api.trade.user-signed.mark-paid');
+    Route::post('trade/{tradeHash}/user-signed/confirm', [TradeController::class, 'userSignedConfirm'])->name('api.trade.user-signed.confirm');
+    Route::post('trade/{tradeHash}/user-signed/cancel', [TradeController::class, 'userSignedCancel'])->name('api.trade.user-signed.cancel');
     Route::post('trade/{tradeHash}/bank-proof', [TradeController::class, 'uploadBankProof'])->name('api.trade.bank-proof');
     Route::post('trade/{tradeHash}/buyer-id', [TradeController::class, 'uploadBuyerId'])->name('api.trade.buyer-id');
 
@@ -126,12 +136,20 @@ Route::middleware(['auth:sanctum', EnsureWalletAuthenticated::class])->group(fun
     // Sell Trades — non-custodial. Backend = indexer only. All on-chain
     // actions broadcast from party wallets (no operator relay).
     Route::prefix('sell-trades')->name('api.sell-trades.')->group(function () {
-        Route::post('/', [SellTradeController::class, 'store'])->name('store');
+        Route::get('active', [SellTradeController::class, 'active'])->name('active');
+        // B10: throttle trade initiation — 5/min per user.
+        Route::post('/', [SellTradeController::class, 'store'])->middleware('throttle:5,1')->name('store');
         Route::post('{tradeHash}/confirm-fund', [SellTradeController::class, 'confirmFund'])->name('confirm-fund');
         Route::get('{tradeHash}', [SellTradeController::class, 'show'])->name('show');
         Route::post('{tradeHash}/confirm-join', [SellTradeController::class, 'confirmJoin'])->name('confirm-join');
         Route::post('{tradeHash}/confirm-mark-paid', [SellTradeController::class, 'confirmMarkPaid'])->name('confirm-mark-paid');
         Route::post('{tradeHash}/cash-proof', [SellTradeController::class, 'cashProof'])->name('cash-proof');
+        Route::get('{tradeHash}/cash-proof', [SellTradeController::class, 'downloadCashProof'])->name('cash-proof.download');
+        Route::post('{tradeHash}/payment-proof', [SellTradeController::class, 'paymentProof'])->name('payment-proof');
+        Route::get('{tradeHash}/payment-proof', [SellTradeController::class, 'downloadPaymentProof'])->name('payment-proof.download');
+        Route::get('{tradeHash}/messages', [SellTradeController::class, 'listMessages'])->name('messages.list');
+        Route::post('{tradeHash}/messages', [SellTradeController::class, 'sendMessage'])->name('messages.send');
+        Route::get('{tradeHash}/messages/{messageId}/attachment', [SellTradeController::class, 'downloadMessageAttachment'])->name('messages.attachment')->whereNumber('messageId');
         Route::post('{tradeHash}/verify-payment', [SellTradeController::class, 'verifyPayment'])->name('verify-payment');
         Route::post('{tradeHash}/confirm-release', [SellTradeController::class, 'confirmRelease'])->name('confirm-release');
         Route::post('{tradeHash}/dispute', [SellTradeController::class, 'openDispute'])->name('dispute');
@@ -144,6 +162,8 @@ Route::middleware(['auth:sanctum', EnsureWalletAuthenticated::class])->group(fun
     // KYC
     Route::prefix('merchant/kyc')->name('api.kyc.')->group(function () {
         Route::get('/', [KycController::class, 'index'])->name('index');
+        Route::get('profile', [KycController::class, 'profile'])->name('profile');
+        Route::post('profile', [KycController::class, 'submitProfile'])->name('profile.submit');
         Route::post('upload', [KycController::class, 'upload'])->name('upload');
         Route::delete('{document}', [KycController::class, 'destroy'])->name('destroy');
     });

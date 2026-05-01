@@ -101,26 +101,131 @@ class TradeService
      */
     public function confirmPayment(Trade $trade): void
     {
+        $trade->update(['status' => TradeStatus::Confirming]);
+        Log::info('Trade entering Confirming state', ['trade_hash' => $trade->trade_hash]);
+    }
+
+    public function finalizeConfirmedPayment(Trade $trade, string $releaseTxHash): void
+    {
+        if ($trade->release_tx_hash === $releaseTxHash) return;
+
         $trade->update([
             'status' => TradeStatus::Completed,
+            'release_tx_hash' => $releaseTxHash,
             'completed_at' => now(),
         ]);
 
-        TradeCompleted::dispatch($trade);
+        TradeCompleted::dispatch($trade->fresh());
+        Log::info('Trade confirmed on-chain', [
+            'trade_hash' => $trade->trade_hash,
+            'release_tx_hash' => $releaseTxHash,
+        ]);
+    }
 
-        Log::info('Trade confirmed', ['trade_hash' => $trade->trade_hash]);
+    public function cancelTrade(Trade $trade): void
+    {
+        $trade->update(['status' => TradeStatus::Cancelling]);
+        Log::info('Trade entering Cancelling state', ['trade_hash' => $trade->trade_hash]);
+    }
+
+    public function finalizeCancelledTrade(Trade $trade, string $cancelTxHash): void
+    {
+        if ($trade->cancel_tx_hash === $cancelTxHash) return;
+
+        $trade->update([
+            'status' => TradeStatus::Cancelled,
+            'cancel_tx_hash' => $cancelTxHash,
+        ]);
+
+        TradeCancelled::dispatch($trade->fresh());
+        Log::info('Trade cancelled on-chain', [
+            'trade_hash' => $trade->trade_hash,
+            'cancel_tx_hash' => $cancelTxHash,
+        ]);
+    }
+
+    // ─── B1: User-signed buy flow service helpers ───
+    //
+    // Returns calldata so the user wallet can broadcast directly.
+    // The corresponding confirm* method records the resulting tx hash + state.
+
+    public function userSignedMarkPaidPayload(Trade $trade): array
+    {
+        return [
+            'escrow_address' => app(\App\Settings\BlockchainSettings::class)->trade_escrow_address,
+            'calldata' => app(\App\Services\BlockchainService::class)
+                ->markPaymentSentByBuyerCalldata($trade->trade_hash),
+        ];
+    }
+
+    public function userSignedConfirmPayload(Trade $trade): array
+    {
+        return [
+            'escrow_address' => app(\App\Settings\BlockchainSettings::class)->trade_escrow_address,
+            'calldata' => app(\App\Services\BlockchainService::class)
+                ->confirmPaymentByMerchantCalldata($trade->trade_hash),
+        ];
+    }
+
+    public function userSignedCancelPayload(Trade $trade): array
+    {
+        return [
+            'escrow_address' => app(\App\Settings\BlockchainSettings::class)->trade_escrow_address,
+            'calldata' => app(\App\Services\BlockchainService::class)
+                ->cancelTradeByMerchantCalldata($trade->trade_hash),
+        ];
     }
 
     /**
-     * Cancel a trade.
+     * Record buyer-signed mark-paid tx hash after frontend broadcast.
      */
-    public function cancelTrade(Trade $trade): void
+    public function recordUserSignedMarkPaid(Trade $trade, string $txHash): void
     {
-        $trade->update(['status' => TradeStatus::Cancelled]);
+        if ($trade->mark_paid_tx_hash === $txHash) return;
 
-        TradeCancelled::dispatch($trade);
+        $trade->update([
+            'status' => TradeStatus::PaymentSent,
+            'mark_paid_tx_hash' => $txHash,
+        ]);
 
-        Log::info('Trade cancelled', ['trade_hash' => $trade->trade_hash]);
+        \App\Events\PaymentMarked::dispatch($trade->fresh());
+        Log::info('Buy flow user-signed mark paid recorded', [
+            'trade_hash' => $trade->trade_hash,
+            'tx' => $txHash,
+        ]);
+    }
+
+    public function recordUserSignedConfirm(Trade $trade, string $txHash): void
+    {
+        if ($trade->release_tx_hash === $txHash) return;
+
+        $trade->update([
+            'status' => TradeStatus::Completed,
+            'release_tx_hash' => $txHash,
+            'completed_at' => now(),
+        ]);
+
+        TradeCompleted::dispatch($trade->fresh());
+        Log::info('Buy flow user-signed confirm recorded', [
+            'trade_hash' => $trade->trade_hash,
+            'tx' => $txHash,
+        ]);
+    }
+
+    public function recordUserSignedCancel(Trade $trade, string $txHash): void
+    {
+        if ($trade->cancel_tx_hash === $txHash) return;
+
+        $trade->update([
+            'status' => TradeStatus::Cancelled,
+            'cancel_tx_hash' => $txHash,
+        ]);
+
+        TradeCancelled::dispatch($trade->fresh());
+        Log::info('Buy flow user-signed cancel recorded', [
+            'trade_hash' => $trade->trade_hash,
+            'tx' => $txHash,
+        ]);
     }
 
     /**
