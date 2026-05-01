@@ -562,6 +562,19 @@
         "type": "bytes32"
       }
     ],
+    "name": "cancelSellTradeByBuyer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "tradeId",
+        "type": "bytes32"
+      }
+    ],
     "name": "cancelSellTradePending",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -588,7 +601,33 @@
         "type": "bytes32"
       }
     ],
+    "name": "cancelTradeByMerchant",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "tradeId",
+        "type": "bytes32"
+      }
+    ],
     "name": "confirmPayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "tradeId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "confirmPaymentByMerchant",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -764,6 +803,19 @@
       }
     ],
     "name": "markPaymentSent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "tradeId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "markPaymentSentByBuyer",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

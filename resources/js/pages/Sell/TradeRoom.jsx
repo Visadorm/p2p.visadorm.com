@@ -27,7 +27,8 @@ export default function SellTradeRoom({ tradeHash }) {
   const { escrowAddress, nftAddress } = useBlockchainConfig()
   const [trade, setTrade] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
+  const [busyAction, setBusyAction] = useState(null)
+  const busy = !!busyAction
   const [disputeReason, setDisputeReason] = useState("")
   const [proofFile, setProofFile] = useState(null)
 
@@ -107,21 +108,22 @@ export default function SellTradeRoom({ tradeHash }) {
   const signerForTx = phraseWallet ?? signer
   const escrow = signerForTx ? new ethers.Contract(escrowAddress, ESCROW_SELL_ABI, signerForTx) : null
 
-  async function send(action) {
+  async function send(name, action) {
     if (!escrow) { toast.error("Wallet not ready"); return }
-    setBusy(true)
+    if (busyAction) return
+    setBusyAction(name)
     try {
       await action()
       await refresh()
     } catch (e) {
       toast.error(humanizeWalletError(e))
     } finally {
-      setBusy(false)
+      setBusyAction(null)
     }
   }
 
   // ─── Seller actions ───
-  const cancelPending = () => send(async () => {
+  const cancelPending = () => send("cancelPending", async () => {
     const tx = await escrow.cancelSellTradePending(trade.trade_hash)
     await tx.wait()
     await api.cancelSellTrade(trade.trade_hash, { cancel_tx_hash: tx.hash })
@@ -129,7 +131,7 @@ export default function SellTradeRoom({ tradeHash }) {
   })
 
   // A2: combined verify + release. Confirmation is the wallet signature itself.
-  const releaseEscrow = () => send(async () => {
+  const releaseEscrow = () => send("release", async () => {
     if (!trade.seller_verified_payment) {
       await api.setSellVerifyPayment(trade.trade_hash, true)
     }
@@ -140,28 +142,28 @@ export default function SellTradeRoom({ tradeHash }) {
   })
 
   // ─── Merchant actions ───
-  const joinTrade = () => send(async () => {
+  const joinTrade = () => send("join", async () => {
     const tx = await escrow.joinSellTrade(trade.trade_hash)
     await tx.wait()
     await api.confirmSellJoin(trade.trade_hash, { join_tx_hash: tx.hash })
     toast.success("Joined the trade")
   })
 
-  const markPaid = () => send(async () => {
+  const markPaid = () => send("markPaid", async () => {
     const tx = await escrow.markSellPaymentSent(trade.trade_hash)
     await tx.wait()
     await api.confirmSellMarkPaid(trade.trade_hash, { mark_paid_tx_hash: tx.hash })
     toast.success("Marked as paid")
   })
 
-  const uploadProof = () => send(async () => {
+  const uploadProof = () => send("uploadCashProof", async () => {
     if (!proofFile) { toast.error("Pick a file"); return }
     await api.uploadSellCashProof(trade.trade_hash, proofFile)
     toast.success("Proof uploaded")
   })
 
   // A4: buyer uploads fiat payment proof.
-  const uploadPaymentProof = () => send(async () => {
+  const uploadPaymentProof = () => send("uploadPaymentProof", async () => {
     if (!proofFile) { toast.error("Pick a file"); return }
     await api.uploadSellPaymentProof(trade.trade_hash, proofFile)
     setProofFile(null)
@@ -169,7 +171,7 @@ export default function SellTradeRoom({ tradeHash }) {
   })
 
   // ─── Both ───
-  const openDispute = () => send(async () => {
+  const openDispute = () => send("openDispute", async () => {
     if (disputeReason.trim().length < 10) { toast.error("Reason ≥ 10 chars"); return }
     const tx = await escrow.openSellDispute(trade.trade_hash)
     await tx.wait()
@@ -180,7 +182,7 @@ export default function SellTradeRoom({ tradeHash }) {
     toast.success("Dispute opened")
   })
 
-  const buyerCancelPrePayment = () => send(async () => {
+  const buyerCancelPrePayment = () => send("buyerCancel", async () => {
     const ok = window.confirm(
       "Cancel this trade? Seller will be refunded in full. " +
       "Use only if you cannot complete the fiat payment."
@@ -273,7 +275,7 @@ export default function SellTradeRoom({ tradeHash }) {
                   <p className="text-sm text-muted-foreground">
                     Waiting for buyer to join. Buyer has been notified.
                   </p>
-                  <LoadingButton variant="outline" loading={busy} loadingText="Cancelling…" onClick={cancelPending}>
+                  <LoadingButton variant="outline" loading={busyAction === "cancelPending"} disabled={busy} loadingText="Cancelling…" onClick={cancelPending}>
                     Cancel trade (full refund)
                   </LoadingButton>
                 </>
@@ -309,7 +311,8 @@ export default function SellTradeRoom({ tradeHash }) {
                   <LoadingButton
                     size="lg"
                     className="w-full"
-                    loading={busy}
+                    loading={busyAction === "release"}
+                    disabled={busy}
                     loadingText="Releasing…"
                     onClick={releaseEscrow}
                   >
@@ -321,7 +324,7 @@ export default function SellTradeRoom({ tradeHash }) {
                 </>
               )}
               {(trade.status === "escrow_locked" || trade.status === "payment_sent") && (
-                <DisputeBlock disputeReason={disputeReason} setDisputeReason={setDisputeReason} onOpen={openDispute} busy={busy} />
+                <DisputeBlock disputeReason={disputeReason} setDisputeReason={setDisputeReason} onOpen={openDispute} busy={busy} busyAction={busyAction} />
               )}
               {trade.status === "completed" && <p className="text-sm text-emerald-500">Trade complete. USDC sent to buyer.</p>}
               {(trade.status === "cancelled" || trade.status === "expired") && (
@@ -351,7 +354,7 @@ export default function SellTradeRoom({ tradeHash }) {
             <CardHeader><CardTitle>Your actions (Merchant)</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {trade.status === "pending" && (
-                <LoadingButton size="lg" className="w-full" loading={busy} loadingText="Joining…" onClick={joinTrade}>Join Trade</LoadingButton>
+                <LoadingButton size="lg" className="w-full" loading={busyAction === "join"} disabled={busy} loadingText="Joining…" onClick={joinTrade}>Join Trade</LoadingButton>
               )}
               {trade.status === "escrow_locked" && (
                 <>
@@ -367,7 +370,7 @@ export default function SellTradeRoom({ tradeHash }) {
                       <p className="text-sm font-medium">Upload cash proof (optional)</p>
                       <p className="text-xs text-muted-foreground">Photo of cash exchange, signed receipt, or QR scan record.</p>
                       <Input type="file" accept="image/*,application/pdf" onChange={(e) => setProofFile(e.target.files?.[0])} />
-                      <LoadingButton size="sm" variant="outline" loading={busy} loadingText="Uploading…" disabled={!proofFile} onClick={uploadProof}>Upload</LoadingButton>
+                      <LoadingButton size="sm" variant="outline" loading={busyAction === "uploadCashProof"} disabled={busy || !proofFile} loadingText="Uploading…" onClick={uploadProof}>Upload</LoadingButton>
                     </div>
                   )}
                   {!trade.is_cash_trade && (
@@ -376,16 +379,18 @@ export default function SellTradeRoom({ tradeHash }) {
                       proofFile={proofFile}
                       setProofFile={setProofFile}
                       busy={busy}
+                      busyAction={busyAction}
                       onUpload={uploadPaymentProof}
                     />
                   )}
-                  <LoadingButton size="lg" className="w-full" loading={busy} loadingText={trade.is_cash_trade ? "Confirming…" : "Marking paid…"} onClick={markPaid}>
+                  <LoadingButton size="lg" className="w-full" loading={busyAction === "markPaid"} disabled={busy} loadingText={trade.is_cash_trade ? "Confirming…" : "Marking paid…"} onClick={markPaid}>
                     {trade.is_cash_trade ? "I paid seller in cash" : "I Paid"}
                   </LoadingButton>
                   <LoadingButton
                     variant="outline"
                     className="w-full"
-                    loading={busy}
+                    loading={busyAction === "buyerCancel"}
+                    disabled={busy}
                     loadingText="Cancelling…"
                     onClick={buyerCancelPrePayment}
                   >
@@ -402,13 +407,14 @@ export default function SellTradeRoom({ tradeHash }) {
                       proofFile={proofFile}
                       setProofFile={setProofFile}
                       busy={busy}
+                      busyAction={busyAction}
                       onUpload={uploadPaymentProof}
                     />
                   )}
                 </>
               )}
               {(trade.status === "escrow_locked" || trade.status === "payment_sent") && (
-                <DisputeBlock disputeReason={disputeReason} setDisputeReason={setDisputeReason} onOpen={openDispute} busy={busy} />
+                <DisputeBlock disputeReason={disputeReason} setDisputeReason={setDisputeReason} onOpen={openDispute} busy={busy} busyAction={busyAction} />
               )}
               {trade.status === "completed" && <p className="text-sm text-emerald-500">Trade complete. USDC received.</p>}
               {(trade.status === "cancelled" || trade.status === "expired") && (
@@ -919,7 +925,7 @@ function ChatImageBubble({ tradeHash, messageId, onClick }) {
 }
 
 // A4: buyer uploads fiat payment proof image/PDF.
-function PaymentProofUploader({ trade, proofFile, setProofFile, busy, onUpload }) {
+function PaymentProofUploader({ trade, proofFile, setProofFile, busy, busyAction, onUpload }) {
   return (
     <div className="space-y-2 rounded-md border p-3">
       <p className="text-sm font-medium">
@@ -938,7 +944,7 @@ function PaymentProofUploader({ trade, proofFile, setProofFile, busy, onUpload }
         accept="image/*,application/pdf"
         onChange={(e) => setProofFile(e.target.files?.[0])}
       />
-      <LoadingButton size="sm" variant="outline" loading={busy} loadingText="Uploading…" disabled={!proofFile} onClick={onUpload}>
+      <LoadingButton size="sm" variant="outline" loading={busyAction === "uploadPaymentProof"} loadingText="Uploading…" disabled={busy || !proofFile} onClick={onUpload}>
         Upload proof
       </LoadingButton>
     </div>
@@ -1111,7 +1117,7 @@ function StatusBadge({ status }) {
   return <span className={`rounded-full px-2 py-0.5 text-xs ${m.color}`}>{m.label}</span>
 }
 
-function DisputeBlock({ disputeReason, setDisputeReason, onOpen, busy }) {
+function DisputeBlock({ disputeReason, setDisputeReason, onOpen, busy, busyAction }) {
   return (
     <details className="rounded-md border p-3">
       <summary className="cursor-pointer text-sm font-medium">Open a dispute</summary>
@@ -1122,7 +1128,7 @@ function DisputeBlock({ disputeReason, setDisputeReason, onOpen, busy }) {
           onChange={(e) => setDisputeReason(e.target.value)}
           rows={3}
         />
-        <LoadingButton variant="destructive" size="sm" loading={busy} loadingText="Opening dispute…" disabled={disputeReason.trim().length < 10} onClick={onOpen}>
+        <LoadingButton variant="destructive" size="sm" loading={busyAction === "openDispute"} loadingText="Opening dispute…" disabled={busy || disputeReason.trim().length < 10} onClick={onOpen}>
           Open dispute (Mediator Council reviews)
         </LoadingButton>
       </div>
